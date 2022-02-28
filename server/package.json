@@ -1,0 +1,29 @@
+{
+  "name": "@codemirror-lua/server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "lua-language-server"
+  ],
+  "scripts": {
+    "dev": "nodemon -r esbuild-register src/main.ts",
+    "build": "esbuild src/index.ts --bundle --platform=node --outdir=dist",
+    "start": "node dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/ws": "^8.2.0",
+    "express": "^4.17.1",
+    "nodemon": "^2.0.15",
+    "vscode-languageserver": "^7.0.0",
+    "vscode-ws-jsonrpc": "^0.2.0",
+    "ws": "^8.5.0"
+  },
+  "devDependencies": {
+    "esbuild-register": "^3.2.0"
+  }
+}
