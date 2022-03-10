@@ -22,11 +22,30 @@ end
 local m = {}
 
 m._eventList = {}
+m._watchings = {}
 
 function m.watch(path)
-    local id = fw.add(path)
+    if m._watchings[path] then
+        m._watchings[path].count = m._watchings[path].count + 1
+    else
+        m._watchings[path] = {
+            count = 1,
+            id    = fw.add(path),
+        }
+        log.debug('fw.add', path)
+    end
+    local removed
     return function ()
-        fw.remove(id)
+        if removed then
+            return
+        end
+        removed = true
+        m._watchings[path].count = m._watchings[path].count - 1
+        if m._watchings[path].count == 0 then
+            fw.remove(m._watchings[path].id)
+            m._watchings[path] = nil
+            log.debug('fw.remove', path)
+        end
     end
 end
 
@@ -35,17 +54,17 @@ function m.event(callback)
     m._eventList[#m._eventList+1] = callback
 end
 
-function m._callEvent(changes)
+function m._callEvent(ev, path)
     for _, callback in ipairs(m._eventList) do
         await.call(function ()
-            callback(changes)
+            callback(ev, path)
         end)
     end
 end
 
 function m.update()
     local collect
-    for _ = 1, 100 do
+    for _ = 1, 10000 do
         local ev, path = fw.select()
         if not ev then
             break
@@ -64,29 +83,18 @@ function m.update()
         return
     end
 
-    local changes = {}
     for path, flag in pairs(collect) do
         if flag & RENAME ~= 0 then
             if exists(path) then
-                changes[#changes+1] = {
-                    type = 'create',
-                    path = path,
-                }
+                m._callEvent('create', path)
             else
-                changes[#changes+1] = {
-                    type = 'delete',
-                    path = path,
-                }
+                m._callEvent('delete', path)
             end
         elseif flag & MODIFY ~= 0 then
-            changes[#changes+1] = {
-                type = 'change',
-                path = path,
-            }
+            m._callEvent('change', path)
         end
     end
 
-    m._callEvent(changes)
 end
 
 return m

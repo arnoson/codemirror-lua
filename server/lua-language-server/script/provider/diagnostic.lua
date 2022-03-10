@@ -10,10 +10,13 @@ local ws        = require 'workspace'
 local progress  = require "progress"
 local client    = require 'client'
 local converter = require 'proto.converter'
+local loading   = require 'workspace.loading'
+local scope     = require 'workspace.scope'
+local time      = require 'bee.time'
+local ltable    = require 'linked-table'
 
 ---@class diagnosticProvider
 local m = {}
-m._start = false
 m.cache = {}
 m.sleepRest = 0.0
 
@@ -26,10 +29,10 @@ end
 
 local function buildSyntaxError(uri, err)
     local text    = files.getText(uri)
-    local message = lang.script('PARSER_'..err.type, err.info)
+    local message = lang.script('PARSER_' .. err.type, err.info)
 
     if err.version then
-        local version = err.info and err.info.version or config.get 'Lua.runtime.version'
+        local version = err.info and err.info.version or config.get(uri, 'Lua.runtime.version')
         message = message .. ('(%s)'):format(lang.script('DIAG_NEED_VERSION'
             , concat(err.version, '/')
             , version
@@ -43,7 +46,7 @@ local function buildSyntaxError(uri, err)
         for _, rel in ipairs(related) do
             local rmessage
             if rel.message then
-                rmessage = lang.script('PARSER_'..rel.message)
+                rmessage = lang.script('PARSER_' .. rel.message)
             else
                 rmessage = text:sub(rel.start, rel.finish)
             end
@@ -58,9 +61,11 @@ local function buildSyntaxError(uri, err)
     return {
         code     = err.type:lower():gsub('_', '-'),
         range    = converter.packRange(uri, err.start, err.finish),
-        severity = define.DiagnosticSeverity.Error,
+        severity = define.DiagnosticSeverity[err.level],
         source   = lang.script.DIAG_SYNTAX_CHECK,
         message  = message,
+        data     = 'syntax',
+
         relatedInformation = relatedInformation,
     }
 end
@@ -74,7 +79,7 @@ local function buildDiagnostic(uri, diag)
     if diag.related then
         relatedInformation = {}
         for _, rel in ipairs(diag.related) do
-            local rtext  = files.getText(rel.uri)
+            local rtext = files.getText(rel.uri)
             relatedInformation[#relatedInformation+1] = {
                 message  = rel.message or rtext:sub(rel.start, rel.finish),
                 location = converter.location(rel.uri, converter.packRange(rel.uri, rel.start, rel.finish))
@@ -90,40 +95,39 @@ local function buildDiagnostic(uri, diag)
         code     = diag.code,
         tags     = diag.tags,
         data     = diag.data,
+
         relatedInformation = relatedInformation,
     }
 end
 
-local function mergeSyntaxAndDiags(a, b)
-    if not a and not b then
+local function mergeDiags(a, b, c)
+    if not a and not b and not c then
         return nil
     end
-    local count = 0
     local t = {}
-    if a then
-        for i = 1, #a do
-            local severity = a[i].severity
+
+    local function merge(diags)
+        if not diags then
+            return
+        end
+        for i = 1, #diags do
+            local diag = diags[i]
+            local severity = diag.severity
             if severity == define.DiagnosticSeverity.Hint
             or severity == define.DiagnosticSeverity.Information then
-                t[#t+1] = a[i]
-            elseif count < 10000 then
-                count = count + 1
-                t[#t+1] = a[i]
+                if #t > 10000 then
+                    goto CONTINUE
+                end
             end
+            t[#t+1] = diag
+            ::CONTINUE::
         end
     end
-    if b then
-        for i = 1, #b do
-            local severity = b[i].severity
-            if severity == define.DiagnosticSeverity.Hint
-            or severity == define.DiagnosticSeverity.Information then
-                t[#t+1] = b[i]
-            elseif count < 10000 then
-                count = count + 1
-                t[#t+1] = b[i]
-            end
-        end
-    end
+
+    merge(a)
+    merge(b)
+    merge(c)
+
     return t
 end
 
@@ -158,8 +162,9 @@ function m.syntaxErrors(uri, ast)
     local results = {}
 
     pcall(function ()
+        local disables = config.get(uri, 'Lua.diagnostics.disable')
         for _, err in ipairs(ast.errs) do
-            if not config.get 'Lua.diagnostics.disable'[err.type:lower():gsub('_', '-')] then
+            if not disables[err.type:lower():gsub('_', '-')] then
                 results[#results+1] = buildSyntaxError(uri, err)
             end
         end
@@ -168,32 +173,26 @@ function m.syntaxErrors(uri, ast)
     return results
 end
 
-function m.diagnostics(uri, diags)
-    if not m._start then
-        return
+local function copyDiagsWithoutSyntax(diags)
+    if not diags then
+        return nil
     end
-
-    if not ws.isReady() then
-        return
+    local copyed = {}
+    for _, diag in ipairs(diags) do
+        if diag.data ~= 'syntax' then
+            copyed[#copyed+1] = diag
+        end
     end
-
-    xpcall(core, log.error, uri, function (results)
-        if #results == 0 then
-            return
-        end
-        for i = 1, #results do
-            diags[#diags+1] = buildDiagnostic(uri, results[i])
-        end
-    end)
+    return copyed
 end
 
 ---@async
-function m.doDiagnostic(uri)
-    if not config.get 'Lua.diagnostics.enable' then
+function m.doDiagnostic(uri, isScopeDiag)
+    if not config.get(uri, 'Lua.diagnostics.enable') then
         return
     end
-    if files.isLibrary(uri) then
-        local status = config.get 'Lua.diagnostics.libraryFiles'
+    if files.isLibrary(uri, true) then
+        local status = config.get(uri, 'Lua.diagnostics.libraryFiles')
         if status == 'Disable' then
             return
         elseif status == 'Opened' then
@@ -203,7 +202,7 @@ function m.doDiagnostic(uri)
         end
     end
     if ws.isIgnored(uri) then
-        local status = config.get 'Lua.diagnostics.ignoredFiles'
+        local status = config.get(uri, 'Lua.diagnostics.ignoredFiles')
         if status == 'Disable' then
             return
         elseif status == 'Opened' then
@@ -215,25 +214,29 @@ function m.doDiagnostic(uri)
 
     await.delay()
 
-    local ast = files.getState(uri)
-    if not ast then
+    local state = files.getState(uri)
+    if not state then
         m.clear(uri)
         return
     end
 
     local version = files.getVersion(uri)
+    local scp = scope.getScope(uri)
 
-    await.setID('diag:' .. uri)
-
-    local prog <close> = progress.create(lang.script.WINDOW_DIAGNOSING, 0.5)
+    local prog <close> = progress.create(scp, lang.script.WINDOW_DIAGNOSING, 0.5)
     prog:setMessage(ws.getRelativePath(uri))
 
-    local syntax = m.syntaxErrors(uri, ast)
+    --log.debug('Diagnostic file:', uri)
+
+    local syntax = m.syntaxErrors(uri, state)
+
     local diags = {}
+    local lastDiag = copyDiagsWithoutSyntax(m.cache[uri])
     local function pushResult()
         tracy.ZoneBeginN 'mergeSyntaxAndDiags'
         local _ <close> = tracy.ZoneEnd
-        local full = mergeSyntaxAndDiags(syntax, diags)
+        local full = mergeDiags(syntax, lastDiag, diags)
+        --log.debug(('Pushed [%d] results'):format(full and #full or 0))
         if not full then
             m.clear(uri)
             return
@@ -254,40 +257,63 @@ function m.doDiagnostic(uri)
         end
     end
 
-    if await.hasID 'diagnosticsAll' then
-        m.checkStepResult = nil
-    else
-        local clock = os.clock()
-        m.checkStepResult = function ()
-            if os.clock() - clock >= 0.2 then
-                pushResult()
-                clock = os.clock()
-            end
-        end
+    -- always re-sent diagnostics of current file
+    if not isScopeDiag then
+        m.cache[uri] = nil
     end
 
-    m.diagnostics(uri, diags)
     pushResult()
-    m.checkStepResult = nil
+
+    local lastPushClock = time.time()
+    ---@async
+    xpcall(core, log.error, uri, isScopeDiag, function (result)
+        diags[#diags+1] = buildDiagnostic(uri, result)
+
+        if not isScopeDiag and time.time() - lastPushClock >= 200 then
+            lastPushClock = time.time()
+            pushResult()
+        end
+    end, function (checkedName)
+        if not lastDiag then
+            return
+        end
+        for i, diag in ipairs(lastDiag) do
+            if diag.code == checkedName then
+                lastDiag[i] = lastDiag[#lastDiag]
+                lastDiag[#lastDiag] = nil
+            end
+        end
+    end)
+
+    lastDiag = nil
+    pushResult()
 end
 
 function m.refresh(uri)
-    if not m._start then
+    if not ws.isReady(uri) then
         return
     end
+    local scp     = scope.getScope(uri)
+    local scopeID = 'diagnosticsScope:' .. scp:getName()
     await.close('diag:' .. uri)
+    await.close(scopeID)
     await.call(function () ---@async
-        await.delay()
         if uri then
-            m.clearCache(uri)
+            await.setID('diag:' .. uri)
+            await.sleep(0.1)
             xpcall(m.doDiagnostic, log.error, uri)
         end
-        m.diagnosticsAll()
-    end, 'files.version')
+        local delay = config.get(uri, 'Lua.diagnostics.workspaceDelay') / 1000
+        if delay < 0 then
+            return
+        end
+        await.sleep(math.max(delay, 0.2))
+        m.diagnosticsScope(uri)
+    end)
 end
 
 ---@async
-local function askForDisable()
+local function askForDisable(uri)
     if m.dontAskedForDisable then
         return
     end
@@ -319,6 +345,7 @@ local function askForDisable()
                 key    = 'Lua.diagnostics.workspaceDelay',
                 action = 'set',
                 value  = delay * 1000,
+                uri    = uri,
             }
         }
     elseif item.title == lang.script.WINDOW_DISABLE_DIAGNOSTIC then
@@ -327,126 +354,102 @@ local function askForDisable()
                 key    = 'Lua.diagnostics.workspaceDelay',
                 action = 'set',
                 value  = -1,
+                uri    = uri,
             }
         }
     end
 end
 
-function m.diagnosticsAll(force)
-    if not force and not config.get 'Lua.diagnostics.enable' then
+---@async
+function m.awaitDiagnosticsScope(suri)
+    local scp = scope.getScope(suri)
+    while loading.count() > 0 do
+        await.sleep(1.0)
+    end
+    local clock = os.clock()
+    local bar <close> = progress.create(scope.getScope(suri), lang.script.WORKSPACE_DIAGNOSTIC, 1)
+    local cancelled
+    bar:onCancel(function ()
+        log.debug('Cancel workspace diagnostics')
+        cancelled = true
+        ---@async
+        await.call(function ()
+            askForDisable(suri)
+        end)
+    end)
+    local uris = files.getAllUris(suri)
+    local sortedUris = ltable()
+    for _, uri in ipairs(uris) do
+        if files.isOpen(uri) then
+            sortedUris:pushHead(uri)
+        else
+            sortedUris:pushTail(uri)
+        end
+    end
+    log.info(('Diagnostics scope [%s], files count:[%d]'):format(scp:getName(), #uris))
+    local i = 0
+    for uri in sortedUris:pairs() do
+        while loading.count() > 0 do
+            await.sleep(1.0)
+        end
+        i = i + 1
+        bar:setMessage(('%d/%d'):format(i, #uris))
+        bar:setPercentage(i / #uris * 100)
+        xpcall(m.doDiagnostic, log.error, uri, true)
+        await.delay()
+        if cancelled then
+            log.debug('Break workspace diagnostics')
+            break
+        end
+    end
+    bar:remove()
+    log.debug(('Diagnostics scope [%s] finished, takes [%.3f] sec.'):format(scp:getName(), os.clock() - clock))
+end
+
+function m.diagnosticsScope(uri, force)
+    if not ws.isReady(uri) then
+        return
+    end
+    if not force and not config.get(uri, 'Lua.diagnostics.enable') then
         m.clearAll()
         return
     end
-    if not m._start then
-        return
-    end
-    local delay = config.get 'Lua.diagnostics.workspaceDelay' / 1000
-    if not force and delay < 0 then
-        return
-    end
-    await.close 'diagnosticsAll'
+    local scp = scope.getScope(uri)
+    local id = 'diagnosticsScope:' .. scp:getName()
+    await.close(id)
     await.call(function () ---@async
-        await.sleep(delay)
-        m.diagnosticsAllClock = os.clock()
-        local clock = os.clock()
-        local bar <close> = progress.create(lang.script.WORKSPACE_DIAGNOSTIC, 1)
-        local cancelled
-        bar:onCancel(function ()
-            log.debug('Cancel workspace diagnostics')
-            cancelled = true
-            await.call(askForDisable)
-        end)
-        local uris = files.getAllUris()
-        for i, uri in ipairs(uris) do
-            bar:setMessage(('%d/%d'):format(i, #uris))
-            bar:setPercentage(i / #uris * 100)
-            xpcall(m.doDiagnostic, log.error, uri)
-            await.delay()
-            if cancelled then
-                log.debug('Break workspace diagnostics')
-                break
-            end
-        end
-        bar:remove()
-        log.debug('全文诊断耗时：', os.clock() - clock)
-    end, 'files.version', 'diagnosticsAll')
+        m.awaitDiagnosticsScope(uri)
+    end, id)
 end
 
-function m.start()
-    m._start = true
-    m.diagnosticsAll()
-end
-
-function m.pause()
-    m._start = false
-    await.close 'diagnosticsAll'
-end
-
-function m.checkStepResult()
-    if await.hasID 'diagnosticsAll' then
-        return
+ws.watch(function (ev, uri)
+    if ev == 'reload' then
+        m.diagnosticsScope(uri)
     end
-end
-
----@async
-function m.checkWorkspaceDiag()
-    if not await.hasID 'diagnosticsAll' then
-        return
-    end
-    local speedRate = config.get 'Lua.diagnostics.workspaceRate'
-    if speedRate <= 0 or speedRate >= 100 then
-        return
-    end
-    local currentClock = os.clock()
-    local passed = currentClock - m.diagnosticsAllClock
-    local sleepTime = passed * (100 - speedRate) / speedRate + m.sleepRest
-    m.sleepRest = 0.0
-    if sleepTime < 0.001 then
-        m.sleepRest = m.sleepRest + sleepTime
-        return
-    end
-    if sleepTime > 0.1 then
-        m.sleepRest = sleepTime - 0.1
-        sleepTime = 0.1
-    end
-    await.sleep(sleepTime)
-    m.diagnosticsAllClock = os.clock()
-    return false
-end
+end)
 
 files.watch(function (ev, uri) ---@async
     if ev == 'remove' then
         m.clear(uri)
         m.refresh(uri)
     elseif ev == 'update' then
-        if ws.isReady() then
-            m.refresh(uri)
-        end
+        m.refresh(uri)
     elseif ev == 'open' then
-        if ws.isReady() then
+        if ws.isReady(uri) then
             xpcall(m.doDiagnostic, log.error, uri)
         end
     elseif ev == 'close' then
-        if files.isLibrary(uri)
+        if files.isLibrary(uri, true)
         or ws.isIgnored(uri) then
             m.clear(uri)
         end
     end
 end)
 
-await.watch(function (ev, co) ---@async
-    if ev == 'delay' then
-        if m.checkStepResult then
-            m.checkStepResult()
-        end
-        return m.checkWorkspaceDiag()
-    end
-end)
-
-config.watch(function (key, value, oldValue)
+config.watch(function (uri, key, value, oldValue)
     if key:find 'Lua.diagnostics' then
         if value ~= oldValue then
-            m.diagnosticsAll()
+            m.diagnosticsScope(uri)
         end
     end
 end)

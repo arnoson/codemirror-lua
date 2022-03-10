@@ -1,0 +1,112 @@
+[19:38:52.211][info] [#0:/home/arno/development/codemirror-lua/server/lua-language-server/main.lua:61]: Lua Lsp startup, root: 	/home/arno/development/codemirror-lua/server/lua-language-server
+[19:38:52.211][debug][#0:/home/arno/development/codemirror-lua/server/lua-language-server/main.lua:62]: ROOT:	/home/arno/development/codemirror-lua/server/lua-language-server
+[19:38:52.211][debug][#0:/home/arno/development/codemirror-lua/server/lua-language-server/main.lua:63]: LOGPATH:	/home/arno/development/codemirror-lua/server/lua-language-server/log
+[19:38:52.211][debug][#0:/home/arno/development/codemirror-lua/server/lua-language-server/main.lua:64]: METAPATH:	/home/arno/development/codemirror-lua/server/lua-language-server/meta
+[19:38:52.211][debug][#0:/home/arno/development/codemirror-lua/server/lua-language-server/main.lua:65]: VERSION:	2.6.7
+[19:38:52.323][info] [#0:script/service/telemetry.lua:22]: Telemetry Token:	2052C76773678881
+[19:38:52.332][info] [#0:script/pub/pub.lua:48]: Create brave:	1
+[19:38:52.332][info] [#0:script/pub/pub.lua:48]: Create brave:	2
+[19:38:52.332][info] [#0:script/pub/pub.lua:48]: Create brave:	3
+[19:38:52.332][info] [#0:script/pub/pub.lua:48]: Create brave:	4
+[19:38:52.333][debug][#0:script/service/service.lua:141]: 
+========= Medical Examination Report =========
+    --------------- Memory ---------------
+        Total: 1.352 MB
+        # 00 : 1.352 MB
+        # 01 : 0.000 MB
+        # 02 : 0.000 MB
+        # 03 : 0.000 MB
+        # 04 : 0.000 MB
+    --------------- Coroutine ---------------
+        Total:     0
+        Running:   0
+        Suspended: 0
+        Normal:    0
+        Dead:      0
+    --------------- Cache ---------------
+        Total: 1
+        Dead:  0
+    ---------------  RPC  ---------------
+        Holdon:   0
+        Waiting:  0
+==============================================
+[19:38:52.443][debug][#0:script/client.lua:401]: Client init	{
+    capabilities = {
+        textDocument = {
+            completion = {
+                completionItem = {
+                    commitCharactersSupport = true,
+                    deprecatedSupport = false,
+                    documentationFormat = {
+                        [1] = "plaintext",
+                        [2] = "markdown",
+                    },
+                    preselectSupport = false,
+                    snippetSupport = false,
+                },
+                contextSupport = false,
+                dynamicRegistration = true,
+            },
+            declaration = {
+                dynamicRegistration = true,
+                linkSupport = true,
+            },
+            definition = {
+                dynamicRegistration = true,
+                linkSupport = true,
+            },
+            hover = {
+                contentFormat = {
+                    [1] = "plaintext",
+                    [2] = "markdown",
+                },
+                dynamicRegistration = true,
+            },
+            implementation = {
+                dynamicRegistration = true,
+                linkSupport = true,
+            },
+            moniker = {
+            },
+            signatureHelp = {
+                dynamicRegistration = true,
+                signatureInformation = {
+                    documentationFormat = {
+                        [1] = "plaintext",
+                        [2] = "markdown",
+                    },
+                },
+            },
+            synchronization = {
+                didSave = false,
+                dynamicRegistration = true,
+                willSave = false,
+                willSaveWaitUntil = false,
+            },
+            typeDefinition = {
+                dynamicRegistration = true,
+                linkSupport = true,
+            },
+        },
+        workspace = {
+            didChangeConfiguration = {
+                dynamicRegistration = true,
+            },
+        },
+    },
+    processId = 1864,
+    rootUri = "",
+    workspaceFolders = {
+        [1] = {
+            name = "root",
+            uri = "",
+        },
+    },
+}
+[19:38:52.443][info] [#0:script/language.lua:135]: VSC language: nil
+[19:38:52.444][info] [#0:script/language.lua:136]: LS  language: en-us
+[19:38:52.444][info] [#0:script/workspace/workspace.lua:37]: Workspace init root: 	
+[19:38:52.444][info] [#0:script/workspace/workspace.lua:41]: Log path: 	/home/arno/development/codemirror-lua/server/lua-language-server/log/.log
+[19:38:52.446][info] [#0:script/workspace/workspace.lua:47]: Workspace create: 	
+[19:38:52.446][debug][#0:script/filewatch.lua:35]: fw.add	
+[19:38:52.553][debug][#0:script/provider/provider.lua:234]: didOpen	file:///test.lua

@@ -3,6 +3,7 @@ local util     = require 'utility'
 local config   = require 'config'
 local infer    = require 'core.infer'
 local await    = require 'await'
+local guide    = require 'parser.guide'
 
 local function formatKey(key)
     if type(key) == 'string' then
@@ -85,7 +86,7 @@ local function getKeyMap(fields)
     for _, field in ipairs(fields) do
         local key = vm.getKeyName(field)
         local tp  = vm.getKeyType(field)
-        if tp == 'number' or tp == 'integer' then
+        if     tp == 'number' or tp == 'integer' then
             key = tonumber(key)
         elseif tp == 'boolean' then
             key = key == 'true'
@@ -121,12 +122,24 @@ local function getOptionalMap(fields)
         if field.type == 'doc.field.name' then
             if field.parent.optional then
                 local key = vm.getKeyName(field)
+                local tp  = vm.getKeyType(field)
+                if     tp == 'number' or tp == 'integer' then
+                    key = tonumber(key)
+                elseif tp == 'boolean' then
+                    key = key == 'true'
+                end
                 optionals[key] = true
             end
         end
         if field.type == 'doc.type.field' then
             if field.optional then
                 local key = vm.getKeyName(field)
+                local tp  = vm.getKeyType(field)
+                if     tp == 'number' or tp == 'integer' then
+                    key = tonumber(key)
+                elseif tp == 'boolean' then
+                    key = key == 'true'
+                end
                 optionals[key] = true
             end
         end
@@ -136,7 +149,7 @@ end
 
 ---@async
 return function (source)
-    local maxFields = config.get 'Lua.hover.previewFields'
+    local maxFields = config.get(guide.getUri(source), 'Lua.hover.previewFields')
     if maxFields <= 0 then
         return 'table'
     end
@@ -163,6 +176,7 @@ return function (source)
     for i = 1, #keys do
         await.delay()
         local key = keys[i]
+
         inferMap[key]   = infer.searchAndViewInfers(source, key)
         literalMap[key] = infer.searchAndViewLiterals(source, key)
         if not tonumber(literalMap[key]) then

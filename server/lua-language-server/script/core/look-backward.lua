@@ -38,7 +38,7 @@ function m.findWord(text, offset)
             if i == offset then
                 return nil
             end
-            return text:sub(i+1, offset), i+1
+            return text:sub(i + 1, offset), i + 1
         end
     end
     return text:sub(1, offset), 1
@@ -54,6 +54,7 @@ function m.findSymbol(text, offset)
         or char == ':'
         or char == '('
         or char == ','
+        or char == '['
         or char == '=' then
             return char, i
         else

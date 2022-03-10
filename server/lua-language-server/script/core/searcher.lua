@@ -2,9 +2,9 @@ local noder     = require 'core.noder'
 local guide     = require 'parser.guide'
 local files     = require 'files'
 local generic   = require 'core.generic'
-local ws        = require 'workspace'
+local rpath     = require 'workspace.require-path'
 local vm        = require 'vm.vm'
-local collector = require 'core.collector'
+local collector = require 'core.collector' 'searcher'
 local util      = require 'utility'
 
 local TRACE        = TRACE
@@ -24,9 +24,6 @@ local sfind        = string.find
 local sformat      = string.format
 
 local getUri       = guide.getUri
-local getRoot      = guide.getRoot
-
-local ceach        = collector.each
 
 local getState     = files.getState
 
@@ -40,10 +37,9 @@ local getHeadID         = noder.getHeadID
 local eachForward       = noder.eachForward
 local getUriAndID       = noder.getUriAndID
 local eachBackward      = noder.eachBackward
+local eachExtend        = noder.eachExtend
 local eachSource        = noder.eachSource
 local compileAllNodes   = noder.compileAllNodes
-local compilePartNoders = noder.compilePartNodes
-local isGlobalID        = noder.isGlobalID
 local hasCall           = noder.hasCall
 
 local SPLIT_CHAR     = noder.SPLIT_CHAR
@@ -192,17 +188,17 @@ local pushRefResultsMap = util.switch()
 ---@param force  boolean
 local function pushResult(status, mode, source, force)
     if not source then
-        return
+        return false
     end
     local results = status.results
     local mark = status.rmark
     if mark[source] then
-        return
+        return true
     end
     mark[source] = true
     if force then
         results[#results+1] = source
-        return
+        return true
     end
 
     if mode == 'def'
@@ -210,7 +206,7 @@ local function pushResult(status, mode, source, force)
         local f = pushDefResultsMap[source.type]
         if f and f(source, status) then
             results[#results+1] = source
-            return
+            return true
         end
     elseif mode == 'ref'
     or     mode == 'field'
@@ -219,17 +215,19 @@ local function pushResult(status, mode, source, force)
         local f = pushRefResultsMap[source.type]
         if f and f(source, status) then
             results[#results+1] = source
-            return
+            return true
         end
     end
 
-    local parent = source.parent
-    if parent.type == 'return' then
-        if source ~= status.source then
-            results[#results+1] = source
-            return
-        end
-    end
+    --local parent = source.parent
+    --if parent.type == 'return' then
+    --    if source ~= status.source then
+    --        results[#results+1] = source
+    --        return true
+    --    end
+    --end
+
+    return false
 end
 
 ---@param obj parser.guide.object
@@ -737,6 +735,46 @@ function m.searchRefsByID(status, suri, expect, mode)
         end
     end
 
+    local function checkExtend(uri, id, field)
+        if  not field
+        and mode ~= 'field'
+        and mode ~= 'allfield' then
+            return
+        end
+        if field then
+            local results = status.results
+            for i = #results, 1, -1 do
+                local res = results[i]
+                if res.type == 'setfield'
+                or res.type == 'setmethod'
+                or res.type == 'setindex' then
+                    local resField = noder.getFieldID(getID(res))
+                    if field == resField then
+                        return
+                    end
+                end
+                if res.type == 'doc.field.name' then
+                    local resField = STRING_FIELD .. res[1]
+                    if field == resField then
+                        return
+                    end
+                end
+            end
+        end
+        for extendID in eachExtend(nodersMap[uri], id) do
+            local targetUri, targetID
+
+            targetUri, targetID = getUriAndID(extendID)
+            if targetUri and targetUri ~= uri then
+                if dontCross == 0 then
+                    searchID(targetUri, targetID, field, uri)
+                end
+            else
+                searchID(uri, targetID or extendID, field)
+            end
+        end
+    end
+
     local function searchSpecial(uri, id, field)
         -- Special rule: ('').XX -> stringlib.XX
         if id == 'str:'
@@ -753,7 +791,7 @@ function m.searchRefsByID(status, suri, expect, mode)
         if not requireName then
             return
         end
-        local uris = ws.findUrisByRequirePath(requireName)
+        local uris = rpath.findUrisByRequirePath(suri, requireName)
         footprint(status, 'require:', requireName)
         for i = 1, #uris do
             local ruri = uris[i]
@@ -777,7 +815,7 @@ function m.searchRefsByID(status, suri, expect, mode)
         or mode == 'alldef'
         or field
         or hasCall(field) then
-            for _, guri in ceach('def:' .. id) do
+            for _, guri in collector:each(suri, 'def:' .. id) do
                 if uri == guri then
                     goto CONTINUE
                 end
@@ -786,14 +824,14 @@ function m.searchRefsByID(status, suri, expect, mode)
             end
         elseif mode == 'field'
         or     mode == 'allfield' then
-            for _, guri in ceach('def:' .. id) do
+            for _, guri in collector:each(suri, 'def:' .. id) do
                 if uri == guri then
                     goto CONTINUE
                 end
                 searchID(guri, id, field, uri)
                 ::CONTINUE::
             end
-            for _, guri in ceach('field:' .. id) do
+            for _, guri in collector:each(suri, 'field:' .. id) do
                 if uri == guri then
                     goto CONTINUE
                 end
@@ -801,7 +839,7 @@ function m.searchRefsByID(status, suri, expect, mode)
                 ::CONTINUE::
             end
         else
-            for _, guri in ceach(id) do
+            for _, guri in collector:each(suri, id) do
                 if crossed[guri] then
                     goto CONTINUE
                 end
@@ -829,7 +867,7 @@ function m.searchRefsByID(status, suri, expect, mode)
         or ignoredIDs[id]
         or id == 'dn:string'
         or hasCall(field) then
-            for _, guri in ceach('def:' .. id) do
+            for _, guri in collector:each(suri, 'def:' .. id) do
                 if uri == guri then
                     goto CONTINUE
                 end
@@ -837,7 +875,7 @@ function m.searchRefsByID(status, suri, expect, mode)
                 ::CONTINUE::
             end
         else
-            for _, guri in ceach(id) do
+            for _, guri in collector:each(suri, id) do
                 if crossed[guri] then
                     goto CONTINUE
                 end
@@ -891,6 +929,9 @@ function m.searchRefsByID(status, suri, expect, mode)
             end
             if noders.backward[id] then
                 checkBackward(uri, id, field)
+            end
+            if noders.extend[id] then
+                checkExtend(uri, id, field)
             end
             releaseExpanding(elock, ecall, id, field)
         end

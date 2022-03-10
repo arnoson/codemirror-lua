@@ -121,7 +121,7 @@ function Joystick:getGamepadAxis(axis) end
 ---
 ---Gets the button, axis or hat that a virtual gamepad input is bound to.
 ---
----@overload fun(button: love.GamepadButton):love.JoystickInputType, number, love.JoystickHat
+---@overload fun(self: love.Joystick, button: love.GamepadButton):love.JoystickInputType, number, love.JoystickHat
 ---@param axis love.GamepadAxis # The virtual gamepad axis to get the binding for.
 ---@return love.JoystickInputType inputtype # The type of input the virtual gamepad axis is bound to.
 ---@return number inputindex # The index of the Joystick's button, axis or hat that the virtual gamepad axis is bound to.
@@ -208,8 +208,8 @@ function Joystick:isVibrationSupported() end
 ---
 ---Sets the vibration motor speeds on a Joystick with rumble support. Most common gamepads have this functionality, although not all drivers give proper support. Use Joystick:isVibrationSupported to check.
 ---
----@overload fun():boolean
----@overload fun(left: number, right: number, duration: number):boolean
+---@overload fun(self: love.Joystick):boolean
+---@overload fun(self: love.Joystick, left: number, right: number, duration: number):boolean
 ---@param left number # Strength of the left vibration motor on the Joystick. Must be in the range of 1.
 ---@param right number # Strength of the right vibration motor on the Joystick. Must be in the range of 1.
 ---@return boolean success # True if the vibration was successfully applied, false if not.
@@ -218,151 +218,151 @@ function Joystick:setVibration(left, right) end
 ---
 ---Virtual gamepad axes.
 ---
----@class love.GamepadAxis
+---@alias love.GamepadAxis
 ---
 ---The x-axis of the left thumbstick.
 ---
----@field leftx integer
+---| '"leftx"'
 ---
 ---The y-axis of the left thumbstick.
 ---
----@field lefty integer
+---| '"lefty"'
 ---
 ---The x-axis of the right thumbstick.
 ---
----@field rightx integer
+---| '"rightx"'
 ---
 ---The y-axis of the right thumbstick.
 ---
----@field righty integer
+---| '"righty"'
 ---
 ---Left analog trigger.
 ---
----@field triggerleft integer
+---| '"triggerleft"'
 ---
 ---Right analog trigger.
 ---
----@field triggerright integer
+---| '"triggerright"'
 
 ---
 ---Virtual gamepad buttons.
 ---
----@class love.GamepadButton
+---@alias love.GamepadButton
 ---
 ---Bottom face button (A).
 ---
----@field a integer
+---| '"a"'
 ---
 ---Right face button (B).
 ---
----@field b integer
+---| '"b"'
 ---
 ---Left face button (X).
 ---
----@field x integer
+---| '"x"'
 ---
 ---Top face button (Y).
 ---
----@field y integer
+---| '"y"'
 ---
 ---Back button.
 ---
----@field back integer
+---| '"back"'
 ---
 ---Guide button.
 ---
----@field guide integer
+---| '"guide"'
 ---
 ---Start button.
 ---
----@field start integer
+---| '"start"'
 ---
 ---Left stick click button.
 ---
----@field leftstick integer
+---| '"leftstick"'
 ---
 ---Right stick click button.
 ---
----@field rightstick integer
+---| '"rightstick"'
 ---
 ---Left bumper.
 ---
----@field leftshoulder integer
+---| '"leftshoulder"'
 ---
 ---Right bumper.
 ---
----@field rightshoulder integer
+---| '"rightshoulder"'
 ---
 ---D-pad up.
 ---
----@field dpup integer
+---| '"dpup"'
 ---
 ---D-pad down.
 ---
----@field dpdown integer
+---| '"dpdown"'
 ---
 ---D-pad left.
 ---
----@field dpleft integer
+---| '"dpleft"'
 ---
 ---D-pad right.
 ---
----@field dpright integer
+---| '"dpright"'
 
 ---
 ---Joystick hat positions.
 ---
----@class love.JoystickHat
+---@alias love.JoystickHat
 ---
 ---Centered
 ---
----@field c integer
+---| '"c"'
 ---
 ---Down
 ---
----@field d integer
+---| '"d"'
 ---
 ---Left
 ---
----@field l integer
+---| '"l"'
 ---
 ---Left+Down
 ---
----@field ld integer
+---| '"ld"'
 ---
 ---Left+Up
 ---
----@field lu integer
+---| '"lu"'
 ---
 ---Right
 ---
----@field r integer
+---| '"r"'
 ---
 ---Right+Down
 ---
----@field rd integer
+---| '"rd"'
 ---
 ---Right+Up
 ---
----@field ru integer
+---| '"ru"'
 ---
 ---Up
 ---
----@field u integer
+---| '"u"'
 
 ---
 ---Types of Joystick inputs.
 ---
----@class love.JoystickInputType
+---@alias love.JoystickInputType
 ---
 ---Analog axis.
 ---
----@field axis integer
+---| '"axis"'
 ---
 ---Button.
 ---
----@field button integer
+---| '"button"'
 ---
 ---8-direction hat value.
 ---
----@field hat integer
+---| '"hat"'

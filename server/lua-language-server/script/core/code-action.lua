@@ -12,24 +12,29 @@ local function checkDisableByLuaDocExits(uri, row, mode, code)
     local state = files.getState(uri)
     local lines = state.lines
     if state.ast.docs and lines then
-        return guide.eachSourceBetween(state.ast.docs, guide.positionOf(row, 0), guide.positionOf(row + 1, 0), function (doc)
-            if  doc.type == 'doc.diagnostic'
-            and doc.mode == mode then
-                if doc.names then
-                    return {
-                        start   = doc.finish,
-                        finish  = doc.finish,
-                        newText = ', ' .. code,
-                    }
-                else
-                    return {
-                        start   = doc.finish,
-                        finish  = doc.finish,
-                        newText = ': ' .. code,
-                    }
+        return guide.eachSourceBetween(
+            state.ast.docs,
+            guide.positionOf(row, 0),
+            guide.positionOf(row + 1, 0),
+            function (doc)
+                if  doc.type == 'doc.diagnostic'
+                and doc.mode == mode then
+                    if doc.names then
+                        return {
+                            start   = doc.finish,
+                            finish  = doc.finish,
+                            newText = ', ' .. code,
+                        }
+                    else
+                        return {
+                            start   = doc.finish,
+                            finish  = doc.finish,
+                            newText = ': ' .. code,
+                        }
+                    end
                 end
             end
-        end)
+        )
     end
     return nil
 end
@@ -43,13 +48,13 @@ local function checkDisableByLuaDocInsert(uri, row, mode, code)
 end
 
 local function disableDiagnostic(uri, code, start, results)
-    local row   = guide.rowColOf(start)
+    local row = guide.rowColOf(start)
     results[#results+1] = {
         title   = lang.script('ACTION_DISABLE_DIAG', code),
         kind    = 'quickfix',
         command = {
-            title    = lang.script.COMMAND_DISABLE_DIAG,
-            command = 'lua.setConfig:' .. sp:get_id(),
+            title     = lang.script.COMMAND_DISABLE_DIAG,
+            command   = 'lua.setConfig',
             arguments = {
                 {
                     key    = 'Lua.diagnostics.disable',
@@ -86,7 +91,7 @@ local function markGlobal(uri, name, results)
         kind    = 'quickfix',
         command = {
             title     = lang.script.COMMAND_MARK_GLOBAL,
-            command = 'lua.setConfig:' .. sp:get_id(),
+            command   = 'lua.setConfig',
             arguments = {
                 {
                     key    = 'Lua.diagnostics.globals',
@@ -105,7 +110,7 @@ local function changeVersion(uri, version, results)
         kind    = 'quickfix',
         command = {
             title     = lang.script.COMMAND_RUNTIME_VERSION,
-            command   = 'lua.setConfig:' .. sp:get_id(),
+            command   = 'lua.setConfig',
             arguments = {
                 {
                     key    = 'Lua.runtime.version',
@@ -174,7 +179,6 @@ local function solveSyntaxByChangeVersion(uri, err, results)
 end
 
 local function solveSyntaxByAddDoEnd(uri, err, results)
-    local text   = files.getText(uri)
     results[#results+1] = {
         title = lang.script.ACTION_ADD_DO_END,
         kind = 'quickfix',
@@ -209,7 +213,7 @@ local function solveSyntaxByFix(uri, err, results)
     results[#results+1] = {
         title = lang.script('ACTION_' .. err.fix.title, err.fix),
         kind  = 'quickfix',
-        edit = {
+        edit  = {
             changes = {
                 [uri] = changes,
             }
@@ -223,7 +227,7 @@ local function solveSyntaxUnicodeName(uri, err, results)
         kind    = 'quickfix',
         command = {
             title     = lang.script.COMMAND_UNICODE_NAME,
-            command   = 'lua.setConfig:' .. sp:get_id(),
+            command   = 'lua.setConfig',
             arguments = {
                 {
                     key    = 'Lua.runtime.unicodeName',
@@ -264,8 +268,8 @@ local function solveNewlineCall(uri, diag, results)
             changes = {
                 [uri] = {
                     {
-                        start  = start,
-                        finish = start,
+                        start   = start,
+                        finish  = start,
                         newText = ';',
                     }
                 }
@@ -280,7 +284,7 @@ local function solveAmbiguity1(uri, diag, results)
         kind = 'quickfix',
         command = {
             title = lang.script.COMMAND_ADD_BRACKETS,
-            command = 'lua.solve:' .. sp:get_id(),
+            command = 'lua.solve',
             arguments = {
                 {
                     name  = 'ambiguity-1',
@@ -298,7 +302,7 @@ local function solveTrailingSpace(uri, diag, results)
         kind = 'quickfix',
         command = {
             title = lang.script.COMMAND_REMOVE_SPACE,
-            command = 'lua.removeSpace:' .. sp:get_id(),
+            command = 'lua.removeSpace',
             arguments = {
                 {
                     uri = uri,
@@ -336,8 +340,8 @@ local function solveAwaitInSync(uri, diag, results)
             changes = {
                 [uri] = {
                     {
-                        start  = pos,
-                        finish = pos,
+                        start   = pos,
+                        finish  = pos,
                         newText = '---@async\n',
                     }
                 }
@@ -542,11 +546,11 @@ end
 --end
 
 local function checkJsonToLua(results, uri, start, finish)
-    local text  = files.getText(uri)
-    local state = files.getState(uri)
+    local text         = files.getText(uri)
+    local state        = files.getState(uri)
     local startOffset  = guide.positionToOffset(state, start)
     local finishOffset = guide.positionToOffset(state, finish)
-    local jsonStart = text:match ('()[%{%[]', startOffset + 1)
+    local jsonStart    = text:match('()[%{%[]', startOffset + 1)
     if not jsonStart then
         return
     end
@@ -570,7 +574,7 @@ local function checkJsonToLua(results, uri, start, finish)
         kind = 'refactor.rewrite',
         command = {
             title = lang.script.COMMAND_JSON_TO_LUA,
-            command = 'lua.jsonToLua:' .. sp:get_id(),
+            command = 'lua.jsonToLua',
             arguments = {
                 {
                     uri    = uri,

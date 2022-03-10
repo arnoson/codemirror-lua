@@ -6,4 +6,4 @@ const binaries = {
   win32: 'lua-language-server/.bin/Windows/lua-language-server.exe',
 }
 
-startLanguageServer(8080, binaries[process.platform])
+startLanguageServer(8080, 'lua-language-server/bin/lua-language-server')

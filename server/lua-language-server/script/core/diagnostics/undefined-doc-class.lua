@@ -1,7 +1,5 @@
 local files   = require 'files'
-local searcher   = require 'core.searcher'
 local lang    = require 'language'
-local define  = require 'proto.define'
 local vm      = require 'vm'
 
 return function (uri, callback)
@@ -25,7 +23,7 @@ return function (uri, callback)
             end
             for _, ext in ipairs(doc.extends) do
                 local name = ext[1]
-                local docs = vm.getDocDefines(name)
+                local docs = vm.getDocDefines(uri, name)
                 if cache[name] == nil then
                     cache[name] = false
                     for _, otherDoc in ipairs(docs) do

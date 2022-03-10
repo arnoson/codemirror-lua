@@ -5,6 +5,12 @@
 ---
 ---Due to its low-level nature, it's rare to use `lovr.event` in simple projects.
 ---
+---
+---### NOTE:
+---You can define your own custom events by adding a function to the `lovr.handlers` table with a key of the name of the event you want to add.
+---
+---Then, push the event using `lovr.event.push`.
+---
 ---@class lovr.event
 lovr.event = {}
 
@@ -14,24 +20,52 @@ lovr.event = {}
 function lovr.event.clear() end
 
 ---
----This function returns a Lua iterator for all of the unprocessed items in the event queue.  Each event consists of a name as a string, followed by event-specific arguments.  This function is called in the default implementation of `lovr.run`, so it is normally not necessary to poll for events yourself.
+---This function returns a Lua iterator for all of the unprocessed items in the event queue.
+---
+---Each event consists of a name as a string, followed by event-specific arguments.
+---
+---This function is called in the default implementation of `lovr.run`, so it is normally not necessary to poll for events yourself.
 ---
 ---@return function iterator # The iterator function, usable in a for loop.
 function lovr.event.poll() end
 
 ---
----Fills the event queue with unprocessed events from the operating system.  This function should be called often, otherwise the operating system will consider the application unresponsive. This function is called in the default implementation of `lovr.run`.
+---Fills the event queue with unprocessed events from the operating system.
+---
+---This function should be called often, otherwise the operating system will consider the application unresponsive. This function is called in the default implementation of `lovr.run`.
 ---
 function lovr.event.pump() end
 
 ---
----Pushes an event onto the event queue.  It will be processed the next time `lovr.event.poll` is called.  For an event to be processed properly, there needs to be a function in the `lovr.handlers` table with a key that's the same as the event name.
+---Pushes an event onto the event queue.
+---
+---It will be processed the next time `lovr.event.poll` is called.
+---
+---For an event to be processed properly, there needs to be a function in the `lovr.handlers` table with a key that's the same as the event name.
+---
+---
+---### NOTE:
+---Only nil, booleans, numbers, strings, and LÖVR objects are supported types for event data.
 ---
 ---@param name string # The name of the event.
 function lovr.event.push(name) end
 
 ---
----Pushes an event to quit.  An optional number can be passed to set the exit code for the application.  An exit code of zero indicates normal termination, whereas a nonzero exit code indicates that an error occurred.
+---Pushes an event to quit.
+---
+---An optional number can be passed to set the exit code for the application.
+---
+---An exit code of zero indicates normal termination, whereas a nonzero exit code indicates that an error occurred.
+---
+---
+---### NOTE:
+---This function is equivalent to calling `lovr.event.push('quit', <args>)`.
+---
+---The event won't be processed until the next time `lovr.event.poll` is called.
+---
+---The `lovr.quit` callback will be called when the event is processed, which can be used to do any cleanup work.
+---
+---The callback can also return `false` to abort the quitting process.
 ---
 ---@param code? number # The exit code of the program.
 function lovr.event.quit(code) end
@@ -39,349 +73,357 @@ function lovr.event.quit(code) end
 ---
 ---Pushes an event to restart the framework.
 ---
+---
+---### NOTE:
+---The event won't be processed until the next time `lovr.event.poll` is called.
+---
+---The `lovr.restart` callback can be used to persist a value between restarts.
+---
 function lovr.event.restart() end
 
 ---
----Keys that can be pressed on a keyboard.  Notably, numpad keys are missing right now.
+---Keys that can be pressed on a keyboard.
 ---
----@class lovr.KeyCode
+---Notably, numpad keys are missing right now.
+---
+---@alias lovr.KeyCode
 ---
 ---The A key.
 ---
----@field a integer
+---| '"a"'
 ---
 ---The B key.
 ---
----@field b integer
+---| '"b"'
 ---
 ---The C key.
 ---
----@field c integer
+---| '"c"'
 ---
 ---The D key.
 ---
----@field d integer
+---| '"d"'
 ---
 ---The E key.
 ---
----@field e integer
+---| '"e"'
 ---
 ---The F key.
 ---
----@field f integer
+---| '"f"'
 ---
 ---The G key.
 ---
----@field g integer
+---| '"g"'
 ---
 ---The H key.
 ---
----@field h integer
+---| '"h"'
 ---
 ---The I key.
 ---
----@field i integer
+---| '"i"'
 ---
 ---The J key.
 ---
----@field j integer
+---| '"j"'
 ---
 ---The K key.
 ---
----@field k integer
+---| '"k"'
 ---
 ---The L key.
 ---
----@field l integer
+---| '"l"'
 ---
 ---The M key.
 ---
----@field m integer
+---| '"m"'
 ---
 ---The N key.
 ---
----@field n integer
+---| '"n"'
 ---
 ---The O key.
 ---
----@field o integer
+---| '"o"'
 ---
 ---The P key.
 ---
----@field p integer
+---| '"p"'
 ---
 ---The Q key.
 ---
----@field q integer
+---| '"q"'
 ---
 ---The R key.
 ---
----@field r integer
+---| '"r"'
 ---
 ---The S key.
 ---
----@field s integer
+---| '"s"'
 ---
 ---The T key.
 ---
----@field t integer
+---| '"t"'
 ---
 ---The U key.
 ---
----@field u integer
+---| '"u"'
 ---
 ---The V key.
 ---
----@field v integer
+---| '"v"'
 ---
 ---The W key.
 ---
----@field w integer
+---| '"w"'
 ---
 ---The X key.
 ---
----@field x integer
+---| '"x"'
 ---
 ---The Y key.
 ---
----@field y integer
+---| '"y"'
 ---
 ---The Z key.
 ---
----@field z integer
+---| '"z"'
 ---
 ---The 0 key.
 ---
----@field ["0"] integer
+---| '"0"'
 ---
 ---The 1 key.
 ---
----@field ["1"] integer
+---| '"1"'
 ---
 ---The 2 key.
 ---
----@field ["2"] integer
+---| '"2"'
 ---
 ---The 3 key.
 ---
----@field ["3"] integer
+---| '"3"'
 ---
 ---The 4 key.
 ---
----@field ["4"] integer
+---| '"4"'
 ---
 ---The 5 key.
 ---
----@field ["5"] integer
+---| '"5"'
 ---
 ---The 6 key.
 ---
----@field ["6"] integer
+---| '"6"'
 ---
 ---The 7 key.
 ---
----@field ["7"] integer
+---| '"7"'
 ---
 ---The 8 key.
 ---
----@field ["8"] integer
+---| '"8"'
 ---
 ---The 9 key.
 ---
----@field ["9"] integer
+---| '"9"'
 ---
 ---The space bar.
 ---
----@field space integer
+---| '"space"'
 ---
 ---The enter key.
 ---
----@field return integer
+---| '"return"'
 ---
 ---The tab key.
 ---
----@field tab integer
+---| '"tab"'
 ---
 ---The escape key.
 ---
----@field escape integer
+---| '"escape"'
 ---
 ---The backspace key.
 ---
----@field backspace integer
+---| '"backspace"'
 ---
 ---The up arrow key.
 ---
----@field up integer
+---| '"up"'
 ---
 ---The down arrow key.
 ---
----@field down integer
+---| '"down"'
 ---
 ---The left arrow key.
 ---
----@field left integer
+---| '"left"'
 ---
 ---The right arrow key.
 ---
----@field right integer
+---| '"right"'
 ---
 ---The home key.
 ---
----@field home integer
+---| '"home"'
 ---
 ---The end key.
 ---
----@field end integer
+---| '"end"'
 ---
 ---The page up key.
 ---
----@field pageup integer
+---| '"pageup"'
 ---
 ---The page down key.
 ---
----@field pagedown integer
+---| '"pagedown"'
 ---
 ---The insert key.
 ---
----@field insert integer
+---| '"insert"'
 ---
 ---The delete key.
 ---
----@field delete integer
+---| '"delete"'
 ---
 ---The F1 key.
 ---
----@field f1 integer
+---| '"f1"'
 ---
 ---The F2 key.
 ---
----@field f2 integer
+---| '"f2"'
 ---
 ---The F3 key.
 ---
----@field f3 integer
+---| '"f3"'
 ---
 ---The F4 key.
 ---
----@field f4 integer
+---| '"f4"'
 ---
 ---The F5 key.
 ---
----@field f5 integer
+---| '"f5"'
 ---
 ---The F6 key.
 ---
----@field f6 integer
+---| '"f6"'
 ---
 ---The F7 key.
 ---
----@field f7 integer
+---| '"f7"'
 ---
 ---The F8 key.
 ---
----@field f8 integer
+---| '"f8"'
 ---
 ---The F9 key.
 ---
----@field f9 integer
+---| '"f9"'
 ---
 ---The F10 key.
 ---
----@field f10 integer
+---| '"f10"'
 ---
 ---The F11 key.
 ---
----@field f11 integer
+---| '"f11"'
 ---
 ---The F12 key.
 ---
----@field f12 integer
+---| '"f12"'
 ---
 ---The backtick/backquote/grave accent key.
 ---
----@field ["`"] integer
+---| '"`"'
 ---
 ---The dash/hyphen/minus key.
 ---
----@field ["-"] integer
+---| '"-"'
 ---
 ---The equal sign key.
 ---
----@field ["="] integer
+---| '"="'
 ---
 ---The left bracket key.
 ---
----@field ["["] integer
+---| '"["'
 ---
 ---The right bracket key.
 ---
----@field ["]"] integer
+---| '"]"'
 ---
 ---The backslash key.
 ---
----@field ["\\"] integer
+---| '"\\"'
 ---
 ---The semicolon key.
 ---
----@field [";"] integer
+---| '";"'
 ---
 ---The single quote key.
 ---
----@field ["'"] integer
+---| '"\'"'
 ---
 ---The comma key.
 ---
----@field [","] integer
+---| '","'
 ---
 ---The period key.
 ---
----@field ["."] integer
+---| '"."'
 ---
 ---The slash key.
 ---
----@field ["/"] integer
+---| '"/"'
 ---
 ---The left control key.
 ---
----@field lctrl integer
+---| '"lctrl"'
 ---
 ---The left shift key.
 ---
----@field lshift integer
+---| '"lshift"'
 ---
 ---The left alt key.
 ---
----@field lalt integer
+---| '"lalt"'
 ---
 ---The left OS key (windows, command, super).
 ---
----@field lgui integer
+---| '"lgui"'
 ---
 ---The right control key.
 ---
----@field rctrl integer
+---| '"rctrl"'
 ---
 ---The right shift key.
 ---
----@field rshift integer
+---| '"rshift"'
 ---
 ---The right alt key.
 ---
----@field ralt integer
+---| '"ralt"'
 ---
 ---The right OS key (windows, command, super).
 ---
----@field rgui integer
+---| '"rgui"'
 ---
 ---The caps lock key.
 ---
----@field capslock integer
+---| '"capslock"'
 ---
 ---The scroll lock key.
 ---
----@field scrolllock integer
+---| '"scrolllock"'
 ---
 ---The numlock key.
 ---
----@field numlock integer
+---| '"numlock"'

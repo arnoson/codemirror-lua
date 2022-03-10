@@ -1,6 +1,6 @@
 local util      = require 'utility'
 local guide     = require 'parser.guide'
-local collector = require 'core.collector'
+local collector = require 'core.collector' 'searcher'
 local files     = require 'files'
 local config    = require 'config'
 
@@ -27,7 +27,6 @@ local ANY_FIELD_CHAR = '*'
 local INDEX_CHAR     = '['
 local RETURN_INDEX   = SPLIT_CHAR .. '#'
 local PARAM_INDEX    = SPLIT_CHAR .. '&'
-local PARAM_NAME     = SPLIT_CHAR .. '$'
 local EVENT_ENUM     = SPLIT_CHAR .. '>'
 local TABLE_KEY      = SPLIT_CHAR .. '<'
 local WEAK_TABLE_KEY = SPLIT_CHAR .. '<<'
@@ -95,6 +94,10 @@ local INFO_DEEP_AND_DONT_CROSS = {
 ---@field binfo?    table<node.id, node.info>
 -- 后退的关联ID与info
 ---@field backwards table<node.id, node.id[]|table<node.id, node.info>>
+-- 第一个继承
+---@field extend    table<node.id, node.id>
+-- 其他继承
+---@field extends   table<node.id, node.id[]>
 -- 函数调用参数信息（用于泛型）
 ---@field call      table<node.id, parser.guide.object>
 ---@field require   table<node.id, string>
@@ -171,7 +174,7 @@ local function getFieldEventName(field)
     if not firstType then
         return nil
     end
-    local firstEnum = #firstType.enums == 1 and #firstType.types == 0 and firstType.enums[1]
+    local firstEnum = firstType.types[1]
     if not firstEnum then
         return nil
     end
@@ -179,11 +182,15 @@ local function getFieldEventName(field)
     if not secondType then
         return nil
     end
-    local secondTypeUnit = #secondType.enums == 0 and #secondType.types == 1 and secondType.types[1]
+    local secondTypeUnit = secondType.types[1]
     if not secondTypeUnit or secondTypeUnit.type ~= 'doc.type.function' then
         return nil
     end
-    local eventName = firstEnum[1]:match [[^['"](.+)['"]$]]
+    local enmuStr = firstEnum[1]
+    if type(enmuStr) ~= 'string' then
+        return nil
+    end
+    local eventName = enmuStr:match [[^['"](.+)['"]$]]
     field._eventName = eventName
     return eventName
 end
@@ -494,7 +501,7 @@ local function getNodeKey(source)
     if methodNode then
         return getNodeKey(methodNode)
     end
-    if config.get 'Lua.IntelliSense.traceFieldInject' then
+    if config.get(guide.getUri(source), 'Lua.IntelliSense.traceFieldInject') then
         local localValueID = getLocalValueID(source)
         if localValueID then
             return localValueID
@@ -549,8 +556,8 @@ end
 
 ---添加关联的前进ID
 ---@param noders    noders
----@param id        string
----@param forwardID string
+---@param id        node.id
+---@param forwardID node.id
 ---@param info?     node.info
 local function pushForward(noders, id, forwardID, info)
     if not id
@@ -581,8 +588,8 @@ end
 
 ---添加关联的后退ID
 ---@param noders     noders
----@param id         string
----@param backwardID string
+---@param id         node.id
+---@param backwardID node.id
 ---@param info?      node.info
 local function pushBackward(noders, id, backwardID, info)
     if not id
@@ -609,6 +616,36 @@ local function pushBackward(noders, id, backwardID, info)
     end
     backwards[backwardID] = info or false
     backwards[#backwards+1] = backwardID
+end
+
+---添加继承的关联ID
+---@param noders     noders
+---@param id         node.id
+---@param extendID   node.id
+local function pushExtend(noders, id, extendID)
+    if not id
+    or not extendID
+    or extendID == ''
+    or id == extendID then
+        return
+    end
+    if not noders.extend[id] then
+        noders.extend[id] = extendID
+        return
+    end
+    if noders.extend[id] == extendID then
+        return
+    end
+    local extends = noders.extends[id]
+    if not extends then
+        extends = {}
+        noders.extends[id] = extends
+    end
+    if extends[extendID] ~= nil then
+        return
+    end
+    extends[extendID] = false
+    extends[#extends+1] = extendID
 end
 
 ---@class noder
@@ -751,6 +788,31 @@ function m.eachBackward(noders, id)
     end
 end
 
+---遍历extend
+---@param noders noders
+---@param id node.id
+---@return fun():string, node.info
+function m.eachExtend(noders, id)
+    local extend = noders.extend[id]
+    if not extend then
+        return DUMMY_FUNCTION
+    end
+    local index
+    local extends = noders.extends[id]
+    return function ()
+        if not index then
+            index = 0
+            return extend
+        end
+        if not extends then
+            return nil
+        end
+        index = index + 1
+        local id  = extends[index]
+        return id
+    end
+end
+
 local function bindValue(noders, source, id)
     local value = source.value
     if not value then
@@ -764,7 +826,7 @@ local function bindValue(noders, source, id)
     local bindDocs = source.bindDocs
     if source.type == 'getlocal'
     or source.type == 'setlocal' then
-        if not config.get 'Lua.IntelliSense.traceLocalSet' then
+        if not config.get(guide.getUri(source), 'Lua.IntelliSense.traceLocalSet') then
             return
         end
         bindDocs = source.node.bindDocs
@@ -779,7 +841,7 @@ local function bindValue(noders, source, id)
     end
     -- x = y : x -> y
     pushForward(noders, id, valueID, INFO_REJECT_SET)
-    if  not config.get 'Lua.IntelliSense.traceBeSetted'
+    if  not config.get(guide.getUri(source), 'Lua.IntelliSense.traceBeSetted')
     and source.type ~= 'local' then
         return
     end
@@ -968,12 +1030,6 @@ compileNodeMap = util.switch()
                 end
             end
         end
-        for _, enumUnit in ipairs(source.enums) do
-            pushForward(noders, id, getID(enumUnit))
-        end
-        for _, resumeUnit in ipairs(source.resumes) do
-            pushForward(noders, id, getID(resumeUnit))
-        end
         for _, typeUnit in ipairs(source.types) do
             local unitID = getID(typeUnit)
             pushForward(noders, id, unitID)
@@ -1050,7 +1106,7 @@ compileNodeMap = util.switch()
         pushForward(noders, getID(source.class), id)
         if source.extends then
             for _, ext in ipairs(source.extends) do
-                pushForward(noders, id, getID(ext), INFO_CLASS_TO_EXNTENDS)
+                pushExtend(noders, id, getID(ext))
             end
         end
         if source.bindSources then
@@ -1118,14 +1174,12 @@ compileNodeMap = util.switch()
         end
         if source.bindSources then
             for _, src in ipairs(source.bindSources) do
-                if src.type == 'function'
-                or guide.isSet(src) then
-                    local paramID = sformat('%s%s%s'
-                        , getID(src)
-                        , PARAM_NAME
-                        , source.param[1]
-                    )
-                    pushForward(noders, paramID, id)
+                if src.type == 'function' and src.args then
+                    for _, arg in ipairs(src.args) do
+                        if arg[1] == source.param[1] then
+                            pushForward(noders, getID(arg), id)
+                        end
+                    end
                 end
             end
         end
@@ -1166,12 +1220,6 @@ compileNodeMap = util.switch()
     : call(function (noders, id, source)
         if source.args then
             for index, param in ipairs(source.args) do
-                local paramID = sformat('%s%s%s'
-                    , id
-                    , PARAM_NAME
-                    , param.name[1]
-                )
-                pushForward(noders, paramID, getID(param.extends))
                 local indexID = sformat('%s%s%s'
                     , id
                     , PARAM_INDEX
@@ -1204,19 +1252,19 @@ compileNodeMap = util.switch()
     : case 'doc.type.name'
     : call(function (noders, id, source)
         local uri = guide.getUri(source)
-        collector.subscribe(uri, id, noders)
+        collector:subscribe(uri, id, noders)
     end)
     : case 'doc.class.name'
     : case 'doc.alias.name'
     : call(function (noders, id, source)
         local uri = guide.getUri(source)
-        collector.subscribe(uri, id, noders)
+        collector:subscribe(uri, id, noders)
 
         local defID = 'def:' .. id
-        collector.subscribe(uri, defID, noders)
+        collector:subscribe(uri, defID, noders)
 
         local defAnyID = 'def:dn:'
-        collector.subscribe(uri, defAnyID, noders)
+        collector:subscribe(uri, defAnyID, noders)
     end)
     : case 'function'
     : call(function (noders, id, source)
@@ -1257,32 +1305,7 @@ compileNodeMap = util.switch()
                     , i
                 )
                 pushForward(noders, indexID, getID(arg))
-                if arg.type == 'local' then
-                    pushForward(noders, getID(arg), sformat('%s%s%s'
-                        , id
-                        , PARAM_NAME
-                        , arg[1]
-                    ))
-                    if parentID then
-                        pushForward(noders, getID(arg), sformat('%s%s%s'
-                            , parentID
-                            , PARAM_NAME
-                            , arg[1]
-                        ))
-                    end
-                else
-                    pushForward(noders, getID(arg), sformat('%s%s%s'
-                        , id
-                        , PARAM_NAME
-                        , '...'
-                    ))
-                    if parentID then
-                        pushForward(noders, getID(arg), sformat('%s%s%s'
-                            , parentID
-                            , PARAM_NAME
-                            , '...'
-                        ))
-                    end
+                if arg.type ~= 'local' then
                     for j = i + 1, i + 10 do
                         pushForward(noders, sformat('%s%s%s'
                             , id
@@ -1304,7 +1327,7 @@ compileNodeMap = util.switch()
                         , index
                     )
                     pushForward(noders, returnID, getID(rtnObj))
-                    if config.get 'Lua.IntelliSense.traceReturn' then
+                    if config.get(guide.getUri(source), 'Lua.IntelliSense.traceReturn') then
                         pushBackward(noders, getID(rtnObj), returnID, INFO_DEEP_AND_DONT_CROSS)
                     end
                 end
@@ -1339,6 +1362,13 @@ compileNodeMap = util.switch()
         local parent = source.parent
         if guide.isSet(parent)  then
             pushForward(noders, id, getID(parent))
+        end
+    end)
+    : case 'loop'
+    : call(function (noders, id, source)
+        local loc = source.loc
+        if loc then
+            pushForward(noders, getID(loc), 'dn:integer')
         end
     end)
     : case 'in'
@@ -1479,24 +1509,24 @@ function m.compileNode(noders, source)
 
     if id and ssub(id, 1, 2) == 'g:' then
         local uri = guide.getUri(source)
-        collector.subscribe(uri, id, noders)
+        collector:subscribe(uri, id, noders)
         if  guide.isSet(source)
         -- local t = Global --> t: g:.Global
         and source.type ~= 'local'
         and source.type ~= 'setlocal' then
 
             local defID = 'def:' .. id
-            collector.subscribe(uri, defID, noders)
+            collector:subscribe(uri, defID, noders)
 
             local fieldID = m.getLastID(id)
             if fieldID then
                 local defNodeID = 'field:' .. fieldID
-                collector.subscribe(uri, defNodeID, noders)
+                collector:subscribe(uri, defNodeID, noders)
             end
 
             if guide.isGlobal(source) then
                 local defAnyID = 'def:g:'
-                collector.subscribe(uri, defAnyID, noders)
+                collector:subscribe(uri, defAnyID, noders)
             end
         end
     end
@@ -1544,6 +1574,11 @@ function m.getLastID(id)
     return lastID
 end
 
+function m.getFieldID(id)
+    local fieldID = smatch(id, LAST_REGEX)
+    return fieldID
+end
+
 ---获取ID的长度
 ---@param id string
 ---@return integer
@@ -1569,7 +1604,7 @@ function m.hasField(id)
     end
     local next2Char = ssub(id, #firstID + 2, #firstID + 2)
     if next2Char == RETURN_INDEX
-    or next2Char == PARAM_NAME then
+    or next2Char == PARAM_INDEX then
         return false
     end
     return true
@@ -1591,9 +1626,6 @@ function m.isCommonField(field)
         return false
     end
     if ssub(field, 1, #RETURN_INDEX) == RETURN_INDEX then
-        return false
-    end
-    if ssub(field, 1, #PARAM_NAME) == PARAM_NAME then
         return false
     end
     return true
@@ -1671,6 +1703,8 @@ function m.getNoders(source)
             backward  = {},
             binfo     = {},
             backwards = {},
+            extend    = {},
+            extends   = {},
             call      = {},
             require   = {},
             skip      = {},
@@ -1701,7 +1735,7 @@ function m.compileAllNodes(source)
     end
     root._initedNoders = true
     if not root._compiledGlobals then
-        collector.dropUri(guide.getUri(root))
+        collector:dropUri(guide.getUri(root))
     end
     root._compiledGlobals = true
     --log.debug('compileNodes:', guide.getUri(root))
@@ -1840,7 +1874,7 @@ function m.compileGlobalNodes(root)
         return
     end
     if not root._compiledGlobals then
-        collector.dropUri(guide.getUri(root))
+        collector:dropUri(guide.getUri(root))
     end
     root._compiledGlobals = true
     local noders = m.getNoders(root)
@@ -1858,16 +1892,22 @@ function m.compileGlobalNodes(root)
     end)
 end
 
+for uri in files.eachFile() do
+    local state = files.getState(uri)
+    if state then
+        m.compileGlobalNodes(state.ast)
+    end
+end
+
 files.watch(function (ev, uri)
     if ev == 'update' then
         local state = files.getState(uri)
         if state then
-            --m.compileAllNodes(state.ast)
             m.compileGlobalNodes(state.ast)
         end
     end
     if ev == 'remove' then
-        collector.dropUri(uri)
+        collector:dropUri(uri)
     end
 end)
 

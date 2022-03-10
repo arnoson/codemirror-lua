@@ -33,3 +33,16 @@ FOOTPRINT = false
 ---trace rpc, use command line: --rpclog=true
 ---@type boolean
 RPCLOG = false
+
+--enable preview features.
+--
+--the current version is `formatting`
+---@type boolean
+PREVIEW = false
+
+--check path
+---@type string
+CHECK = ''
+
+---@type string | '"Error"' | '"Warning"' | '"Information"' | '"Hint"'
+CHECKLEVEL = 'Warning'

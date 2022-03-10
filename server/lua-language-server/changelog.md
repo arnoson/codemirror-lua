@@ -1,6 +1,120 @@
 # changelog
 
+## 2.6.7
+`2022-3-9`
+* `NEW` offline diagnostic, [read more](https://github.com/sumneko/lua-language-server/wiki/Offline-Diagnostic)
+* `CHG` `VSCode`: 1.65 has built in new `Lua` syntax files, so this extension no longer provides syntax files, which means you can install other syntax extensions in the marketplace. If you have any suggestions or issues, please [open issues here](https://github.com/sumneko/lua.tmbundle).
+* `CHG` telemetry: the prompt will only appear in VSCode to avoid repeated prompts in other platforms due to the inability to automatically modify the settings.
+* `FIX` [#965](https://github.com/sumneko/lua-language-server/issues/965)
+* `FIX` [#975](https://github.com/sumneko/lua-language-server/issues/975)
+
+## 2.6.6
+`2022-2-21`
+* `NEW` formatter preview, use `--preview` to enable this feature, [read more](https://github.com/sumneko/lua-language-server/issues/960)
+* `FIX` [#958](https://github.com/sumneko/lua-language-server/issues/958)
+* `FIX` runtime errors
+
+## 2.6.5
+`2022-2-17`
+* `FIX` telemetry is not disabled by default (since 2.6.0)
+* `FIX` [#934](https://github.com/sumneko/lua-language-server/issues/934)
+* `FIX` [#952](https://github.com/sumneko/lua-language-server/issues/952)
+
+## 2.6.4
+`2022-2-9`
+* `CHG` completion: reduced sorting priority for postfix completion
+* `FIX` [#936](https://github.com/sumneko/lua-language-server/issues/936)
+* `FIX` [#937](https://github.com/sumneko/lua-language-server/issues/937)
+* `FIX` [#940](https://github.com/sumneko/lua-language-server/issues/940)
+* `FIX` [#941](https://github.com/sumneko/lua-language-server/issues/941)
+* `FIX` [#941](https://github.com/sumneko/lua-language-server/issues/942)
+* `FIX` [#943](https://github.com/sumneko/lua-language-server/issues/943)
+* `FIX` [#946](https://github.com/sumneko/lua-language-server/issues/946)
+
+## 2.6.3
+`2022-1-25`
+* `FIX` new files are not loaded correctly
+* `FIX` [#923](https://github.com/sumneko/lua-language-server/issues/923)
+* `FIX` [#926](https://github.com/sumneko/lua-language-server/issues/926)
+
+## 2.6.2
+`2022-1-25`
+* `FIX` [#925](https://github.com/sumneko/lua-language-server/issues/925)
+
+## 2.6.1
+`2022-1-24`
+* `CHG` default values of settings:
+  + `Lua.diagnostics.workspaceDelay`: `0` sec -> `3` sec
+  + `Lua.workspace.maxPreload`: `1000` -> `5000`
+  + `Lua.workspace.preloadFileSize`: `100` KB -> `500` KB
+* `CHG` improve performance
+* `FIX` modify luarc failed
+* `FIX` library files not recognized correctly
+* `FIX` [#903](https://github.com/sumneko/lua-language-server/issues/903)
+* `FIX` [#906](https://github.com/sumneko/lua-language-server/issues/906)
+* `FIX` [#920](https://github.com/sumneko/lua-language-server/issues/920)
+
+## 2.6.0
+`2022-1-13`
+* `NEW` supports multi-workspace in server side, for developers of language clients, please [read here](https://github.com/sumneko/lua-language-server/wiki/Multi-workspace-supports) to learn more.
+* `NEW` setting:
+  + `Lua.hint.arrayIndex`
+  + `Lua.semantic.enable`
+  + `Lua.semantic.variable`
+  + `Lua.semantic.annotation`
+  + `Lua.semantic.keyword`
+* `CHG` completion: improve response speed
+* `CHG` completion: can be triggered in `LuaDoc` and strings
+* `CHG` diagnostic: smoother
+* `CHG` settings `Lua.color.mode` removed
+* `FIX` [#876](https://github.com/sumneko/lua-language-server/issues/876)
+* `FIX` [#879](https://github.com/sumneko/lua-language-server/issues/879)
+* `FIX` [#884](https://github.com/sumneko/lua-language-server/issues/884)
+* `FIX` [#885](https://github.com/sumneko/lua-language-server/issues/885)
+* `FIX` [#886](https://github.com/sumneko/lua-language-server/issues/886)
+* `FIX` [#902](https://github.com/sumneko/lua-language-server/issues/902)
+
+## 2.5.6
+`2021-12-27`
+* `CHG` diagnostic: now syntax errors in `LuaDoc` are shown as `Warning`
+* `FIX` [#863](https://github.com/sumneko/lua-language-server/issues/863)
+* `FIX` return type of `math.floor`
+* `FIX` runtime errors
+
+## 2.5.5
+`2021-12-16`
+* `FIX` dose not work in VSCode
+
+## 2.5.4
+`2021-12-16`
+* `FIX` [#847](https://github.com/sumneko/lua-language-server/issues/847)
+* `FIX` [#848](https://github.com/sumneko/lua-language-server/issues/848)
+* `FIX` completion: incorrect cache
+* `FIX` hover: always view string
+
+## 2.5.3
+`2021-12-6`
+* `FIX` [#842](https://github.com/sumneko/lua-language-server/issues/844)
+* `FIX` [#844](https://github.com/sumneko/lua-language-server/issues/844)
+
+## 2.5.2
+`2021-12-2`
+* `FIX` [#815](https://github.com/sumneko/lua-language-server/issues/815)
+* `FIX` [#825](https://github.com/sumneko/lua-language-server/issues/825)
+* `FIX` [#826](https://github.com/sumneko/lua-language-server/issues/826)
+* `FIX` [#827](https://github.com/sumneko/lua-language-server/issues/827)
+* `FIX` [#831](https://github.com/sumneko/lua-language-server/issues/831)
+* `FIX` [#837](https://github.com/sumneko/lua-language-server/issues/837)
+* `FIX` [#838](https://github.com/sumneko/lua-language-server/issues/838)
+* `FIX` postfix
+* `FIX` runtime errors
+
+## 2.5.1
+`2021-11-29`
+* `FIX` incorrect syntax error
+
 ## 2.5.0
+`2021-11-29`
 * `NEW` settings:
   + `Lua.runtime.pathStrict`: not check subdirectories when using `runtime.path`
   + `Lua.hint.await`: display `await` when calling a function marked as async

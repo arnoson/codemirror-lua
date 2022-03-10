@@ -186,12 +186,13 @@ function love.filesystem.mount(archive, mountpoint, appendToPath) end
 function love.filesystem.newFile(filename) end
 
 ---
----Creates a new FileData object.
+---Creates a new FileData object from a file on disk, or from a string in memory.
 ---
+---@overload fun(originaldata: love.Data, name: string):love.FileData
 ---@overload fun(filepath: string):love.FileData, string
----@param contents string # The contents of the file.
----@param name string # The name of the file.
----@return love.FileData data # Your new FileData.
+---@param contents string # The contents of the file in memory represented as a string.
+---@param name string # The name of the file. The extension may be parsed and used by LÖVE when passing the FileData object into love.audio.newSource.
+---@return love.FileData data # The new FileData.
 function love.filesystem.newFileData(contents, name) end
 
 ---
@@ -353,7 +354,7 @@ function File:open(mode) end
 ---
 ---Read a number of bytes from a file.
 ---
----@overload fun(container: love.ContainerType, bytes: number):love.FileData|string, number
+---@overload fun(self: love.File, container: love.ContainerType, bytes: number):love.FileData|string, number
 ---@param bytes? number # The number of bytes to read.
 ---@return string contents # The contents of the read bytes.
 ---@return number size # How many bytes have been read.
@@ -386,7 +387,7 @@ function File:tell() end
 ---
 ---Write data to a file.
 ---
----@overload fun(data: love.Data, size: number):boolean, string
+---@overload fun(self: love.File, data: love.Data, size: number):boolean, string
 ---@param data string # The string data to write.
 ---@param size? number # How many bytes to write.
 ---@return boolean success # Whether the operation was successful.
@@ -414,71 +415,71 @@ function FileData:getFilename() end
 ---
 ---Buffer modes for File objects.
 ---
----@class love.BufferMode
+---@alias love.BufferMode
 ---
 ---No buffering. The result of write and append operations appears immediately.
 ---
----@field none integer
+---| '"none"'
 ---
 ---Line buffering. Write and append operations are buffered until a newline is output or the buffer size limit is reached.
 ---
----@field line integer
+---| '"line"'
 ---
 ---Full buffering. Write and append operations are always buffered until the buffer size limit is reached.
 ---
----@field full integer
+---| '"full"'
 
 ---
 ---How to decode a given FileData.
 ---
----@class love.FileDecoder
+---@alias love.FileDecoder
 ---
 ---The data is unencoded.
 ---
----@field file integer
+---| '"file"'
 ---
 ---The data is base64-encoded.
 ---
----@field base64 integer
+---| '"base64"'
 
 ---
 ---The different modes you can open a File in.
 ---
----@class love.FileMode
+---@alias love.FileMode
 ---
 ---Open a file for read.
 ---
----@field r integer
+---| '"r"'
 ---
 ---Open a file for write.
 ---
----@field w integer
+---| '"w"'
 ---
 ---Open a file for append.
 ---
----@field a integer
+---| '"a"'
 ---
 ---Do not open a file (represents a closed file.)
 ---
----@field c integer
+---| '"c"'
 
 ---
 ---The type of a file.
 ---
----@class love.FileType
+---@alias love.FileType
 ---
 ---Regular file.
 ---
----@field file integer
+---| '"file"'
 ---
 ---Directory.
 ---
----@field directory integer
+---| '"directory"'
 ---
 ---Symbolic link.
 ---
----@field symlink integer
+---| '"symlink"'
 ---
 ---Something completely different like a device.
 ---
----@field other integer
+---| '"other"'

@@ -27,8 +27,6 @@ local type         = type
 ---@field index                 parser.guide.object
 ---@field extends               parser.guide.object[]
 ---@field types                 parser.guide.object[]
----@field enums                 parser.guide.object[]
----@field resumes               parser.guide.object[]
 ---@field fields                parser.guide.object[]
 ---@field typeGeneric           table<integer, parser.guide.object[]>
 ---@field tkey                  parser.guide.object
@@ -96,7 +94,7 @@ local childMap = {
     ['repeat']      = {'#', 'filter'},
     ['while']       = {'filter', '#'},
     ['in']          = {'keys', 'exps', '#'},
-    ['loop']        = {'loc', 'max', 'step', '#'},
+    ['loop']        = {'loc', 'init', 'max', 'step', '#'},
     ['if']          = {'#'},
     ['ifblock']     = {'filter', '#'},
     ['elseifblock'] = {'filter', '#'},
@@ -128,7 +126,7 @@ local childMap = {
 
     ['doc']                = {'#'},
     ['doc.class']          = {'class', '#extends', 'comment'},
-    ['doc.type']           = {'#types', '#enums', '#resumes', 'name', 'comment'},
+    ['doc.type']           = {'#types', 'name', 'comment'},
     ['doc.alias']          = {'alias', 'extends', 'comment'},
     ['doc.param']          = {'param', 'extends', 'comment'},
     ['doc.return']         = {'#returns', 'comment'},
@@ -141,10 +139,12 @@ local childMap = {
     ['doc.type.function']  = {'#args', '#returns', 'comment'},
     ['doc.type.ltable']    = {'#fields', 'comment'},
     ['doc.type.literal']   = {'node'},
-    ['doc.type.arg']       = {'extends'},
+    ['doc.type.arg']       = {'name', 'extends'},
     ['doc.type.field']     = {'extends'},
     ['doc.overload']       = {'overload', 'comment'},
     ['doc.see']            = {'name', 'field'},
+    ['doc.version']        = {'#versions'},
+    ['doc.diagnostic']     = {'#names'},
 }
 
 ---@type table<string, fun(obj: parser.guide.object, list: parser.guide.object[])>
@@ -261,7 +261,7 @@ end
 ---@param obj parser.guide.object
 ---@return parser.guide.object
 function m.getParentFunction(obj)
-    for _ = 1, 1000 do
+    for _ = 1, 10000 do
         obj = obj.parent
         if not obj then
             break
@@ -278,7 +278,7 @@ end
 ---@param obj parser.guide.object
 ---@return parser.guide.object
 function m.getBlock(obj)
-    for _ = 1, 1000 do
+    for _ = 1, 10000 do
         if not obj then
             return nil
         end
@@ -307,7 +307,7 @@ end
 ---@param obj parser.guide.object
 ---@return parser.guide.object
 function m.getParentBlock(obj)
-    for _ = 1, 1000 do
+    for _ = 1, 10000 do
         obj = obj.parent
         if not obj then
             return nil
@@ -324,7 +324,7 @@ end
 ---@param obj parser.guide.object
 ---@return parser.guide.object
 function m.getBreakBlock(obj)
-    for _ = 1, 1000 do
+    for _ = 1, 10000 do
         obj = obj.parent
         if not obj then
             return nil
@@ -344,7 +344,7 @@ end
 ---@param obj parser.guide.object
 ---@return parser.guide.object
 function m.getDocState(obj)
-    for _ = 1, 1000 do
+    for _ = 1, 10000 do
         local parent = obj.parent
         if not parent then
             return obj
@@ -361,7 +361,7 @@ end
 ---@param obj parser.guide.object
 ---@return parser.guide.object
 function m.getParentType(obj, want)
-    for _ = 1, 1000 do
+    for _ = 1, 10000 do
         obj = obj.parent
         if not obj then
             return nil
@@ -381,7 +381,7 @@ function m.getRoot(obj)
     if source._root then
         return source._root
     end
-    for _ = 1, 1000 do
+    for _ = 1, 10000 do
         if obj.type == 'main' then
             source._root = obj
             return obj
@@ -450,7 +450,7 @@ end
 ---@param pos integer {comment = '可见位置'}
 function m.getLocal(block, name, pos)
     block = m.getBlock(block)
-    for _ = 1, 1000 do
+    for _ = 1, 10000 do
         if not block then
             return nil
         end
@@ -502,7 +502,7 @@ end
 ---@param name string {comment = '标签名'}
 function m.getLabel(block, name)
     block = m.getBlock(block)
-    for _ = 1, 1000 do
+    for _ = 1, 10000 do
         if not block then
             return nil
         end
@@ -781,7 +781,7 @@ function m.offsetToPositionByLines(lines, offset)
         row = (left + right) // 2
         if row == left then
             if right ~= left then
-                if lines[right] <= offset then
+                if lines[right] - 1 <= offset then
                     row = right
                 end
             end
@@ -800,6 +800,17 @@ end
 
 function m.offsetToPosition(state, offset)
     return m.offsetToPositionByLines(state.lines, offset)
+end
+
+function m.getLineRange(state, row)
+    local nextLineStart = state.lines[row + 1] or #state.lua
+    for i = nextLineStart - 1, state.lines[row], -1 do
+        local w = state.lua:sub(i, i)
+        if w ~= '\r' and w ~= '\n' then
+            return i - state.lines[row] + 1
+        end
+    end
+    return 0
 end
 
 local isSetMap = {
@@ -1160,5 +1171,17 @@ function m.isInString(ast, position)
     end)
 end
 
+function m.isOOP(source)
+    if source.type == 'setmethod'
+    or source.type == 'getmethod' then
+        return true
+    end
+    if source.type == 'method'
+    or source.type == 'field'
+    or source.type == 'function' then
+        return m.isOOP(source.parent)
+    end
+    return false
+end
 
 return m

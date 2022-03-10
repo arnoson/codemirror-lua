@@ -10,6 +10,7 @@ local lang     = require 'language'
 local define   = require 'proto.define'
 local await    = require 'await'
 local version  = require 'version'
+local ws       = require 'workspace'
 
 local tokenPath = (ROOT / 'log' / 'token'):string()
 local token = util.loadFile(tokenPath)
@@ -58,12 +59,29 @@ local function pushVersion(link)
     ))
 end
 
+local function occlusionPath(str)
+    return str:gsub('(%s*)([^:"\'%<%[%]\r\n]+)', function (left, chunk)
+        if not chunk:find '[/\\]' then
+            return
+        end
+        local newStr, count = chunk:gsub('.+([/\\]script[/\\])', '***%1')
+        if count > 0 then
+            return left .. newStr
+        elseif chunk:sub(1, 1) == '\\'
+        or     chunk:sub(1, 1) == '/'
+        or     chunk:sub(1, 3) == '...' then
+            return left .. '***'
+        end
+    end)
+end
+
 local function pushErrorLog(link)
-    if not log.firstError then
+    local err = log.firstError
+    if not err then
         return
     end
-    local err = log.firstError
     log.firstError = nil
+    err = occlusionPath(err)
     send(link, string.pack('zzzz'
         , 'error'
         , token
@@ -72,9 +90,11 @@ local function pushErrorLog(link)
     ))
 end
 
+local isValid  = false
+
 timer.wait(5, function ()
     timer.loop(300, function ()
-        if not config.get 'Lua.telemetry.enable' then
+        if isValid ~= true then
             return
         end
         local suc, link = pcall(net.connect, 'tcp', 'moe-moe.love', 11577)
@@ -93,7 +113,7 @@ timer.wait(5, function ()
         end
     end)()
     timer.loop(1, function ()
-        if not config.get 'Lua.telemetry.enable' then
+        if isValid ~= true then
             return
         end
         net.update()
@@ -103,7 +123,28 @@ end)
 local m = {}
 
 function m.updateConfig()
-    if config.get 'Lua.telemetry.enable' ~= nil then
+    local enable = config.get(nil, 'Lua.telemetry.enable')
+    assert(enable == true or enable == false or enable == nil)
+    isValid = enable
+    if isValid == false then
+        return
+    end
+    for _, scp in ipairs(ws.folders) do
+        if config.get(scp.uri, 'Lua.telemetry.enable') == false then
+            isValid = false
+            return
+        end
+    end
+    for _, scp in ipairs(ws.folders) do
+        if config.get(scp.uri, 'Lua.telemetry.enable') == true then
+            isValid = true
+            break
+        end
+    end
+    if isValid ~= nil then
+        return
+    end
+    if not client.getOption 'changeConfiguration' then
         return
     end
     if m.hasShowedMessage then
@@ -151,8 +192,9 @@ function m.updateConfig()
     end)
 end
 
-config.watch(function (key)
-    if key == 'Lua.telemetry.enable' then
+config.watch(function (uri, key, value)
+    if key == 'Lua.telemetry.enable'
+    or key == '' then
         m.updateConfig()
     end
 end)

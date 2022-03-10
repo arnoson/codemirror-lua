@@ -317,7 +317,7 @@ function Body:applyAngularImpulse(impulse) end
 ---
 ---Note that the force components and position must be given in world coordinates.
 ---
----@overload fun(fx: number, fy: number, x: number, y: number)
+---@overload fun(self: love.Body, fx: number, fy: number, x: number, y: number)
 ---@param fx number # The x component of force to apply to the center of mass.
 ---@param fy number # The y component of force to apply to the center of mass.
 function Body:applyForce(fx, fy) end
@@ -333,7 +333,7 @@ function Body:applyForce(fx, fy) end
 ---
 ---Note that the impulse components and position must be given in world coordinates.
 ---
----@overload fun(ix: number, iy: number, x: number, y: number)
+---@overload fun(self: love.Body, ix: number, iy: number, x: number, y: number)
 ---@param ix number # The x component of the impulse applied to the center of mass.
 ---@param iy number # The y component of the impulse applied to the center of mass.
 function Body:applyLinearImpulse(ix, iy) end
@@ -491,6 +491,19 @@ function Body:getLocalCenter() end
 ---@return number localX # The x position in local coordinates.
 ---@return number localY # The y position in local coordinates.
 function Body:getLocalPoint(worldX, worldY) end
+
+---
+---Transforms multiple points from world coordinates to local coordinates.
+---
+---@param x1 number # (Argument) The x position of the first point.
+---@param y1 number # (Argument) The y position of the first point.
+---@param x2 number # (Argument) The x position of the second point.
+---@param y2 number # (Argument) The y position of the second point.
+---@return number x1 # (Result) The transformed x position of the first point.
+---@return number y1 # (Result) The transformed y position of the first point.
+---@return number x2 # (Result) The transformed x position of the second point.
+---@return number y2 # (Result) The transformed y position of the second point.
+function Body:getLocalPoints(x1, y1, x2, y2) end
 
 ---
 ---Transform a vector from world coordinates to local coordinates.
@@ -2273,78 +2286,78 @@ function World:update(dt, velocityiterations, positioniterations) end
 ---
 ---The types of a Body. 
 ---
----@class love.BodyType
+---@alias love.BodyType
 ---
 ---Static bodies do not move.
 ---
----@field static integer
+---| '"static"'
 ---
 ---Dynamic bodies collide with all bodies.
 ---
----@field dynamic integer
+---| '"dynamic"'
 ---
 ---Kinematic bodies only collide with dynamic bodies.
 ---
----@field kinematic integer
+---| '"kinematic"'
 
 ---
 ---Different types of joints.
 ---
----@class love.JointType
+---@alias love.JointType
 ---
 ---A DistanceJoint.
 ---
----@field distance integer
+---| '"distance"'
 ---
 ---A FrictionJoint.
 ---
----@field friction integer
+---| '"friction"'
 ---
 ---A GearJoint.
 ---
----@field gear integer
+---| '"gear"'
 ---
 ---A MouseJoint.
 ---
----@field mouse integer
+---| '"mouse"'
 ---
 ---A PrismaticJoint.
 ---
----@field prismatic integer
+---| '"prismatic"'
 ---
 ---A PulleyJoint.
 ---
----@field pulley integer
+---| '"pulley"'
 ---
 ---A RevoluteJoint.
 ---
----@field revolute integer
+---| '"revolute"'
 ---
 ---A RopeJoint.
 ---
----@field rope integer
+---| '"rope"'
 ---
 ---A WeldJoint.
 ---
----@field weld integer
+---| '"weld"'
 
 ---
 ---The different types of Shapes, as returned by Shape:getType.
 ---
----@class love.ShapeType
+---@alias love.ShapeType
 ---
 ---The Shape is a CircleShape.
 ---
----@field circle integer
+---| '"circle"'
 ---
 ---The Shape is a PolygonShape.
 ---
----@field polygon integer
+---| '"polygon"'
 ---
 ---The Shape is a EdgeShape.
 ---
----@field edge integer
+---| '"edge"'
 ---
 ---The Shape is a ChainShape.
 ---
----@field chain integer
+---| '"chain"'

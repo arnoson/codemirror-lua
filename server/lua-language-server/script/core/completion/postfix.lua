@@ -50,17 +50,17 @@ register 'function' {
 
 register 'method' {
     function (state, source, callback)
-        if  source.type == 'getfield' then
+        if source.type == 'getfield' then
             if hasNonFieldInNode(source) then
                 return
             end
             local subber = subString(state)
             callback(string.format('function %s:%s($1)\n\t$0\nend'
                 , subber(source.start + 1, source.dot.start)
-                , subber(source.dot .finish + 1, source.finish)
+                , subber(source.dot.finish + 1, source.finish)
             ))
         end
-        if  source.type == 'getmethod' then
+        if source.type == 'getmethod' then
             if hasNonFieldInNode(source.parent) then
                 return
             end
@@ -130,6 +130,60 @@ register 'xpcall' {
                 , subber(source.start + 1, source.finish)
             ))
         end
+    end
+}
+
+register 'local' {
+    function (state, source, callback)
+        if  source.type ~= 'getglobal'
+        and source.type ~= 'getfield'
+        and source.type ~= 'getmethod'
+        and source.type ~= 'getindex'
+        and source.type ~= 'getlocal'
+        and source.type ~= 'call'
+        and source.type ~= 'table' then
+            return
+        end
+        local subber = subString(state)
+        callback(string.format('local $1 = %s$0'
+            , subber(source.start + 1, source.finish)
+        ))
+    end
+}
+
+register 'ipairs' {
+    function (state, source, callback)
+        if  source.type ~= 'getglobal'
+        and source.type ~= 'getfield'
+        and source.type ~= 'getmethod'
+        and source.type ~= 'getindex'
+        and source.type ~= 'getlocal'
+        and source.type ~= 'call'
+        and source.type ~= 'table' then
+            return
+        end
+        local subber = subString(state)
+        callback(string.format('for ${1:i}, ${2:v} in ipairs(%s) do\n\t$0\nend'
+            , subber(source.start + 1, source.finish)
+        ))
+    end
+}
+
+register 'pairs' {
+    function (state, source, callback)
+        if  source.type ~= 'getglobal'
+        and source.type ~= 'getfield'
+        and source.type ~= 'getmethod'
+        and source.type ~= 'getindex'
+        and source.type ~= 'getlocal'
+        and source.type ~= 'call'
+        and source.type ~= 'table' then
+            return
+        end
+        local subber = subString(state)
+        callback(string.format('for ${1:k}, ${2:v} in pairs(%s) do\n\t$0\nend'
+            , subber(source.start + 1, source.finish)
+        ))
     end
 }
 
@@ -230,33 +284,36 @@ local accepts = {
     ['table']     = true,
 }
 
-local function checkPostFix(state, word, wordPosition, position, results)
+local function checkPostFix(state, word, wordPosition, position, symbol, results)
     local source = guide.eachSourceContain(state.ast, wordPosition, function (source)
-        if accepts[source.type] then
+        if  accepts[source.type]
+        and source.finish == wordPosition then
             return source
         end
     end)
     if not source then
         return
     end
-    for _, action in ipairs(actions) do
+    for i, action in ipairs(actions) do
         if matchKey(word, action.key) then
             action.data[1](state, source, function (newText)
                 results[#results+1] = {
-                    label      = action.key,
-                    kind       = define.CompletionItemKind.Event,
-                    description= markdown()
+                    label       = action.key,
+                    kind        = define.CompletionItemKind.Event,
+                    description = markdown()
                                     : add('lua', newText)
                                     : string(),
-                    textEdit   = {
-                        start   = wordPosition + 1,
+                    textEdit    = {
+                        start   = wordPosition + #symbol,
                         finish  = position,
                         newText = newText,
                     },
+                    sortText    = ('postfix-%04d'):format(i),
+
                     additionalTextEdits = {
                         {
                             start   = source.start,
-                            finish  = wordPosition + 1,
+                            finish  = wordPosition + #symbol,
                             newText = '',
                         },
                     },
@@ -277,9 +334,9 @@ return function (state, position, results)
         offset = newOffset - 1
     end
     local symbol = text:sub(offset, offset)
-    if symbol == config.get 'Lua.completion.postfix' then
+    if symbol == config.get(state.uri, 'Lua.completion.postfix') then
         local wordPosition = guide.offsetToPosition(state, offset - 1)
-        checkPostFix(state, word or '', wordPosition, position, results)
+        checkPostFix(state, word or '', wordPosition, position, symbol, results)
         return symbol ~= '.' and symbol ~= ':'
     end
     if not word then
@@ -292,8 +349,8 @@ return function (state, position, results)
             offset = offset - 3
         end
         if word then
-            local wordPosition = guide.offsetToPosition(state, offset - 1)
-            checkPostFix(state, word or '', wordPosition, position, results)
+            local wordPosition = guide.offsetToPosition(state, offset)
+            checkPostFix(state, word or '', wordPosition, position, '', results)
             return true
         end
     end

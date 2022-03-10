@@ -57,7 +57,9 @@ m.DiagnosticDefaultSeverity = {
     ['duplicate-doc-param']     = 'Warning',
     ['doc-field-no-class']      = 'Warning',
     ['duplicate-doc-field']     = 'Warning',
-    ['unknown-diag-code']       = 'Waiting',
+    ['unknown-diag-code']       = 'Warning',
+
+    ['codestyle-check']         = "Warning",
 }
 
 ---@alias DiagnosticDefaultNeededFileStatus
@@ -115,6 +117,8 @@ m.DiagnosticDefaultNeededFileStatus = {
     ['doc-field-no-class']      = 'Any',
     ['duplicate-doc-field']     = 'Any',
     ['unknown-diag-code']       = 'Any',
+
+    ['codestyle-check']         = 'None',
 }
 
 --- 诊断报告标签

@@ -11,10 +11,13 @@ local lang   = require 'language'
 local ws     = require 'workspace'
 local time   = require 'bee.time'
 local fw     = require 'filewatch'
+local furi   = require 'file-uri'
 
+---@class service
 local m = {}
 m.type = 'service'
 m.idleClock = 0.0
+m.sleeping = false
 
 local function countMemory()
     local mems = {}
@@ -118,7 +121,7 @@ function m.reportProto()
     end
 
     local lines = {}
-    lines[#lines+1] = '    --------------- Proto ---------------'
+    lines[#lines+1] = '    ---------------  RPC  ---------------'
     lines[#lines+1] = ('        Holdon:   %d'):format(holdon)
     lines[#lines+1] = ('        Waiting:  %d'):format(waiting)
     return table.concat(lines, '\n')
@@ -140,45 +143,61 @@ function m.report()
     t:onTimer()
 end
 
-function m.startTimer()
+function m.eventLoop()
     pub.task('timer', 1)
-    while true do
-        pub.step(not m.workingClock)
-        if await.step() then
-            m.sleeping = false
-            if not m.workingClock then
-                m.workingClock = time.monotonic()
-            end
-        else
-            if m.workingClock then
-                m.workingClock = nil
-                m.idleClock = time.monotonic()
-                m.reportStatus()
+    pub.on('wakeup', function ()
+        m.reportStatus()
+        fw.update()
+    end)
+
+    local function busy()
+        if not m.workingClock then
+            m.workingClock = time.monotonic()
+            m.reportStatus()
+        end
+    end
+
+    local function idle()
+        if m.workingClock then
+            m.workingClock = nil
+            m.reportStatus()
+        end
+    end
+
+    local function doSomething()
+        pub.step(false)
+        if not await.step() then
+            return false
+        end
+        busy()
+        return true
+    end
+
+    local function sleep()
+        idle()
+        for _ = 1, 10 do
+            thread.sleep(0.1)
+            if doSomething() then
+                return
             end
         end
+        pub.step(true)
+    end
+
+    while true do
+        if doSomething() then
+            goto CONTINUE
+        end
         timer.update()
+        if doSomething() then
+            goto CONTINUE
+        end
+        sleep()
+        ::CONTINUE::
     end
 end
 
-function m.pulse()
-    --timer.loop(10, function ()
-    --    if not m.workingClock and not m.sleeping and time.monotonic() - m.idleClock >= 300000 then
-    --        m.sleeping = true
-    --        files.flushCache()
-    --        vm.flushCache()
-    --        ws.flushCache()
-    --        collectgarbage()
-    --        collectgarbage()
-    --    end
-    --    m.reportStatus()
-    --end)
-    timer.loop(0.1, function ()
-        m.reportStatus()
-    end)
-    timer.loop(1, function ()
-        fw.update()
-    end)
-end
+local showStatusTip = math.random(100) == 1
 
 function m.reportStatus()
     local info = {}
@@ -189,12 +208,23 @@ function m.reportStatus()
     else
         info.text = '😺Lua'
     end
-    info.tooltip = lang.script('WINDOW_LUA_STATUS', {
-        ws  = ws.path or '',
+
+    local tooltips = {}
+    local params = {
         ast = files.astCount,
         max = files.fileCount,
         mem = collectgarbage('count') / 1000,
-    })
+    }
+    for i, scp in ipairs(ws.folders) do
+        tooltips[i] = lang.script('WINDOW_LUA_STATUS_WORKSPACE', furi.decode(scp.uri))
+    end
+    tooltips[#tooltips+1] = lang.script('WINDOW_LUA_STATUS_CACHED_FILES', params)
+    tooltips[#tooltips+1] = lang.script('WINDOW_LUA_STATUS_MEMORY_COUNT', params)
+    if showStatusTip then
+        tooltips[#tooltips+1] = lang.script('WINDOW_LUA_STATUS_TIP')
+    end
+
+    info.tooltip = table.concat(tooltips, '\n')
     if util.equal(m.lastInfo, info) then
         return
     end
@@ -219,15 +249,11 @@ function m.start()
     pub.recruitBraves(4)
     proto.listen()
     m.report()
-    m.pulse()
-    m.reportStatus()
     m.testVersion()
 
     require 'provider'
 
-    m.startTimer()
-
-    ws.reload()
+    m.eventLoop()
 end
 
 return m

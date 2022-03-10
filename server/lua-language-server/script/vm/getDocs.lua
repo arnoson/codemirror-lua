@@ -3,21 +3,24 @@ local guide     = require 'parser.guide'
 ---@class vm
 local vm        = require 'vm.vm'
 local config    = require 'config'
-local collector = require 'core.collector'
+local collector = require 'core.collector' 'searcher'
 local define    = require 'proto.define'
 local noder     = require 'core.noder'
 
 ---获取class与alias
 ---@param name? string
 ---@return parser.guide.object[]
-function vm.getDocDefines(name)
+function vm.getDocDefines(uri, name)
+    if type(name) ~= 'string' then
+        return {}
+    end
     local cache = vm.getCache 'getDocDefines'
     if cache[name] then
         return cache[name]
     end
     local results = {}
     if name == '*' then
-        for noders in collector.each('def:dn:') do
+        for noders in collector:each(uri, 'def:dn:') do
             for id in noder.eachID(noders) do
                 if  id:sub(1, 3) == 'dn:'
                 and not id:find(noder.SPLIT_CHAR) then
@@ -31,7 +34,7 @@ function vm.getDocDefines(name)
         end
     else
         local id = 'dn:' .. name
-        for noders in collector.each('def:' .. id) do
+        for noders in collector:each(uri, 'def:' .. id) do
             for source in noder.eachSource(noders, id) do
                 if source.type == 'doc.class.name'
                 or source.type == 'doc.alias.name' then
@@ -44,12 +47,12 @@ function vm.getDocDefines(name)
     return results
 end
 
-function vm.isDocDefined(name)
+function vm.isDocDefined(uri, name)
     if define.BuiltinType[name] then
         return true
     end
     local id = 'def:dn:' .. name
-    if collector.has(id) then
+    if collector:has(uri, id) then
         return true
     end
     return false
@@ -153,7 +156,7 @@ local function isDeprecated(value)
             return true
         elseif doc.type == 'doc.version' then
             local valids = vm.getValidVersions(doc)
-            if not valids[config.get 'Lua.runtime.version'] then
+            if not valids[config.get(guide.getUri(value), 'Lua.runtime.version')] then
                 value._deprecated = true
                 return true
             end
