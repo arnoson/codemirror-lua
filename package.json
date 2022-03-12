@@ -7,13 +7,5 @@
   "workspaces": [
     "client",
     "server"
-  ],
-  "dependencies": {
-    "@codemirror/autocomplete": "^0.19.14",
-    "@codemirror/lint": "^0.19.6",
-    "@codemirror/state": "^0.19.9",
-    "@codemirror/tooltip": "^0.19.16",
-    "@codemirror/view": "^0.19.47",
-    "@open-rpc/client-js": "^1.7.1"
-  }
+  ]
 }
