@@ -3,12 +3,13 @@ import { lua } from '@codemirror/legacy-modes/mode/lua'
 import { StreamLanguage } from '@codemirror/stream-parser'
 import './style.css'
 // @ts-ignore
-import { languageServer } from './codemirror-languageserver'
+import { languageServer } from 'codemirror-languageserver'
 
 const fileName = 'test.lua'
 const luaLanguageServer = languageServer({
   serverUri: `ws://localhost:8080`,
-  // rootUri: 'file:///', (overwritten in `codemirror-languageserver.js, line 118)
+  rootUri: null,
+  workspaceFolders: null,
   documentUri: `file:///${fileName}`,
   languageId: 'lua',
 })
